@@ -11,9 +11,7 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.core.env.Environment;
 import org.springframework.lang.Nullable;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
-import org.springframework.mock.web.MockPart;
+import org.springframework.mock.web.*;
 import org.springframework.test.util.AopTestUtils;
 import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -32,6 +30,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
 
 public class Dispatcher implements PluginCommunication.MessageCallback {
@@ -130,39 +130,60 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
      */
     public void invokeController(Map<String, Object> taskMap) {
         try {
-            MockHttpServletRequest mockHttpServletRequest = new MockHttpServletRequest();
+            String contentType = taskMap.getOrDefault("contentType", "").toString();
+            MockHttpServletRequest mockHttpServletRequest = contentType.toLowerCase().startsWith("multipart/") ?
+                    new MockMultipartHttpServletRequest() : new MockHttpServletRequest();
+
             MockHttpServletResponse mockHttpServletResponse = new MockHttpServletResponse();
-
-            mockHttpServletRequest.setCharacterEncoding("utf-8");
-            mockHttpServletResponse.setCharacterEncoding("utf-8");
-
             String body = taskMap.getOrDefault("body", "").toString();
             boolean useProxyObject = (Boolean) taskMap.getOrDefault("useProxyObject", false);
             boolean interceptor = (boolean) taskMap.getOrDefault("useInterceptor", false);
 
-
             String id = taskMap.getOrDefault("id", "").toString();
             String url = taskMap.getOrDefault("url", "").toString();
             Object headers = taskMap.get("headers");
-            if (headers instanceof Map) {
-                Map<?, ?> headersMap = (Map<?, ?>) headers;
-                for (Object obj : headersMap.keySet()) {
-                    mockHttpServletRequest.addHeader(obj.toString(), headersMap.get(obj));
+            if (headers instanceof List) {
+                List<?> headerList = (List<?>) headers;
+                for (Object o : headerList) {
+                    if (o instanceof Map) {
+                        mockHttpServletRequest.addHeader(((Map<?, ?>) o).get("key").toString().toLowerCase(), ((Map<?, ?>) o).get("value").toString().toLowerCase());
+
+                    }
                 }
             }
 
+            mockHttpServletRequest.setCharacterEncoding("utf-8");
+            mockHttpServletResponse.setCharacterEncoding("utf-8");
+
             URI uri = URI.create(url);
 
-            if ("multipart/form-data".equalsIgnoreCase(mockHttpServletRequest.getHeader("content-type"))) {
+            if (contentType.toLowerCase().contains("multipart/form-data")) {
                 Object formData = taskMap.get("formData");
-                if (formData != null) {
-//                    mockHttpServletRequest.addParameter();
-                    mockHttpServletRequest.addPart(new MockPart("", new byte[]{}));
+                if (formData instanceof List) {
+                    for (Object formItem : ((List<?>) formData)) {
+                        if (formItem instanceof Map) {
+                            Map<?, ?> formItemValue = (Map<?, ?>) formItem;
+                            if ("text".equalsIgnoreCase(formItemValue.get("type").toString())) {
+                                mockHttpServletRequest.addParameter(formItemValue.get("name").toString(), formItemValue.get("value").toString());
+                            }
+                            if ("file".equalsIgnoreCase(formItemValue.get("type").toString())) {
+                                if (Files.exists(Paths.get(formItemValue.get("value").toString()))) {
+                                    String name =formItemValue.get("name").toString();
+                                    byte[] value =  Files.readAllBytes(Paths.get(formItemValue.get("value").toString()));
+
+                                    mockHttpServletRequest.addPart(new MockPart(name,value ));
+                                    ((MockMultipartHttpServletRequest) mockHttpServletRequest).addFile(new MockMultipartFile(name,value));
+                                }
+                            }
+                        }
+                    }
                 }
             } else {
                 mockHttpServletRequest.setContent(body.getBytes());
             }
-            mockHttpServletRequest.setContentType(taskMap.getOrDefault("contentType", "application/json").toString());
+            if (mockHttpServletRequest.getContentType() ==null || "".equalsIgnoreCase(mockHttpServletRequest.getContentType())){
+                mockHttpServletRequest.setContentType("application/json");
+            }
 
             ControllerEndpoint endpoint = springRequestMappingCollector.getHandlerMethodMaps().get(id);
             RequestMethodsRequestCondition methodsCondition = endpoint.getRequestMappingInfo().getMethodsCondition();
@@ -206,6 +227,7 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
             if (this.parseRequestPath) {
                 ServletRequestPathUtils.parseAndCache(mockHttpServletRequest);
             }
+
 
             HandlerExecutionChain mappedHandler = getHandler(mockHttpServletRequest);
 
