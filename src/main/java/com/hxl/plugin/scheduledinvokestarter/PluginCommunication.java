@@ -1,7 +1,7 @@
 package com.hxl.plugin.scheduledinvokestarter;
 
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hxl.plugin.scheduledinvokestarter.model.CommunicationPackage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,9 +14,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
-import java.util.HashMap;
 import java.util.Iterator;
-import java.util.Map;
 import java.util.Set;
 
 public class PluginCommunication implements Runnable {
@@ -98,17 +96,43 @@ public class PluginCommunication implements Runnable {
         }
     }
 
-    public static void send(Map<String, Object> body) {
+//    public static void send(Map<String, Object> body,int total,) {
+//        String port = System.getProperty("hxl.spring.invoke.port");
+//        if (port == null) {
+//            LOGGER.error("spring invoke:not found port");
+//            return;
+//        }
+//        try (SocketChannel pluginServer = SocketChannel.open(new InetSocketAddress("localhost", Integer.parseInt(port)))) {
+//            String value = new ObjectMapper().writeValueAsString(body);
+//            System.out.println(value.getBytes().length);
+//            System.out.println(pluginServer.write(Charset.defaultCharset().encode(value)));
+//        } catch (Exception e) {
+//            LOGGER.error("spring invoke: send info err" + e.getMessage());
+//        }
+//    }
+    public static void send(CommunicationPackage communicationPackage) {
         String port = System.getProperty("hxl.spring.invoke.port");
         if (port == null) {
             LOGGER.error("spring invoke:not found port");
             return;
         }
         try (SocketChannel pluginServer = SocketChannel.open(new InetSocketAddress("localhost", Integer.parseInt(port)))) {
-            String value = new ObjectMapper().writeValueAsString(body);
-            pluginServer.write(Charset.defaultCharset().encode(value));
+            pluginServer.write(Charset.defaultCharset().encode(communicationPackage.toJson()));
         } catch (Exception e) {
             LOGGER.error("spring invoke: send info err" + e.getMessage());
         }
     }
+//    public static void send(Map<String, Object> body) {
+//        String port = System.getProperty("hxl.spring.invoke.port");
+//        if (port == null) {
+//            LOGGER.error("spring invoke:not found port");
+//            return;
+//        }
+//        try (SocketChannel pluginServer = SocketChannel.open(new InetSocketAddress("localhost", Integer.parseInt(port)))) {
+//            String value = new ObjectMapper().writeValueAsString(body);
+//            System.out.println(value.getBytes().length);
+//            System.out.println(pluginServer.write(Charset.defaultCharset().encode(value)));
+//        } catch (Exception e) {
+//            LOGGER.error("spring invoke: send info err" + e.getMessage());
+//        }
 }

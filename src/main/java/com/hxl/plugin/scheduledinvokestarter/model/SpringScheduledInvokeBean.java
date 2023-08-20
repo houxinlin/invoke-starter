@@ -1,6 +1,6 @@
-package com.hxl.plugin.scheduledinvokestarter;
+package com.hxl.plugin.scheduledinvokestarter.model;
 
-public class ScheduledInvokeBean  extends InvokeBean{
+public class SpringScheduledInvokeBean extends InvokeBean {
     private String className;
     private String methodName;
 
@@ -47,8 +47,8 @@ public class ScheduledInvokeBean  extends InvokeBean{
             return this;
         }
 
-        public ScheduledInvokeBean build() {
-            ScheduledInvokeBean scheduledInvokeBean = new ScheduledInvokeBean();
+        public SpringScheduledInvokeBean build() {
+            SpringScheduledInvokeBean scheduledInvokeBean = new SpringScheduledInvokeBean();
             scheduledInvokeBean.setId(id);
             scheduledInvokeBean.setClassName(className);
             scheduledInvokeBean.setMethodName(methodName);

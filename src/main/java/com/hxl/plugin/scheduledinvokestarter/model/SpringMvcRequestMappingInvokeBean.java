@@ -1,20 +1,18 @@
-package com.hxl.plugin.scheduledinvokestarter;
+package com.hxl.plugin.scheduledinvokestarter.model;
 
 import java.util.Objects;
 
-public class RequestMappingInvokeBean  extends InvokeBean{
+public class SpringMvcRequestMappingInvokeBean extends InvokeBean {
     private String url;
     private String simpleClassName;
     private String methodName;
-
     private String httpMethod;
-
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (!(o instanceof RequestMappingInvokeBean)) return false;
-        RequestMappingInvokeBean that = (RequestMappingInvokeBean) o;
+        if (!(o instanceof SpringMvcRequestMappingInvokeBean)) return false;
+        SpringMvcRequestMappingInvokeBean that = (SpringMvcRequestMappingInvokeBean) o;
         return Objects.equals(getUrl(), that.getUrl()) && Objects.equals(getSimpleClassName(), that.getSimpleClassName()) && Objects.equals(getMethodName(), that.getMethodName()) && Objects.equals(getHttpMethod(), that.getHttpMethod());
     }
 
@@ -95,14 +93,14 @@ public class RequestMappingInvokeBean  extends InvokeBean{
             return this;
         }
 
-        public RequestMappingInvokeBean build() {
-            RequestMappingInvokeBean requestMappingInvokeBean = new RequestMappingInvokeBean();
-            requestMappingInvokeBean.setId(id);
-            requestMappingInvokeBean.setUrl(url);
-            requestMappingInvokeBean.setSimpleClassName(simpleClassName);
-            requestMappingInvokeBean.setMethodName(methodName);
-            requestMappingInvokeBean.setHttpMethod(httpMethod);
-            return requestMappingInvokeBean;
+        public SpringMvcRequestMappingInvokeBean build() {
+            SpringMvcRequestMappingInvokeBean springMvcRequestMappingInvokeBean = new SpringMvcRequestMappingInvokeBean();
+            springMvcRequestMappingInvokeBean.setId(id);
+            springMvcRequestMappingInvokeBean.setUrl(url);
+            springMvcRequestMappingInvokeBean.setSimpleClassName(simpleClassName);
+            springMvcRequestMappingInvokeBean.setMethodName(methodName);
+            springMvcRequestMappingInvokeBean.setHttpMethod(httpMethod);
+            return springMvcRequestMappingInvokeBean;
         }
     }
 }

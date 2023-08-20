@@ -2,8 +2,9 @@ package com.hxl.plugin.scheduledinvokestarter;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hxl.plugin.scheduledinvokestarter.model.InvokeResponseCommunicationPackage;
+import com.hxl.plugin.scheduledinvokestarter.model.InvokeResponseModel;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanFactoryUtils;
@@ -30,6 +31,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
@@ -292,16 +295,18 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
 
     private void sendResponse(MockHttpServletResponse response, String requestId) {
         try {
-            Map<String, List<String>> header = new HashMap<>();
+            List<InvokeResponseModel.Header> headers =new ArrayList<>();
             for (String headerName : response.getHeaderNames()) {
-                header.put(headerName, response.getHeaders(headerName));
+                for (String value : response.getHeaders(headerName)) {
+                    headers.add(new InvokeResponseModel.Header(headerName,value));
+                }
             }
-            Map<String, Object> map = new HashMap<>();
-            map.put("response", response.getContentAsString());
-            map.put("id", requestId);
-            map.put("type", "response_info");
-            map.put("responseHeaders", header);
-            PluginCommunication.send(map);
+            InvokeResponseModel invokeResponseModel = InvokeResponseModel.InvokeResponseModelBuilder.anInvokeResponseModel()
+                    .withData(response.getContentAsString(StandardCharsets.UTF_8))
+                    .withId(requestId)
+                    .withHeader(headers)
+                    .build();
+            PluginCommunication.send(new InvokeResponseCommunicationPackage(invokeResponseModel));
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
         }

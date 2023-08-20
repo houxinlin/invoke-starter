@@ -3,6 +3,7 @@ package com.hxl.plugin.scheduledinvokestarter;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hxl.plugin.scheduledinvokestarter.model.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.framework.AopProxyUtils;
@@ -28,7 +29,6 @@ import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandl
 import javax.annotation.Resource;
 import java.lang.reflect.Method;
 import java.util.*;
-import java.util.function.Supplier;
 
 
 public class SpringRequestMappingCollector implements CommandLineRunner,
@@ -38,7 +38,7 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
     private ApplicationContext applicationContext;
     private final Map<String, ControllerEndpoint> handlerMethodMaps = new HashMap<>();
     private final Map<String, ScheduledEndpoint> scheduledEndpointMap = new HashMap<>();
-    private final List<ScheduledInvokeBean> scheduledInvokeBeans = new ArrayList<>();
+    private final List<SpringScheduledInvokeBean> scheduledInvokeBeans = new ArrayList<>();
     private final PluginCommunication pluginCommunication = new PluginCommunication(this);
     @Resource
     private ObjectMapper objectMapper;
@@ -49,10 +49,6 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
 
     public Map<String, ScheduledEndpoint> getScheduledEndpointMap() {
         return scheduledEndpointMap;
-    }
-
-    public List<ScheduledInvokeBean> getScheduledInvokeBeans() {
-        return scheduledInvokeBeans;
     }
 
     @Override
@@ -82,9 +78,11 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
         return "";
     }
 
-    private Set<RequestMappingInvokeBean> collectorRequestMapping() {
+    private Set<SpringMvcRequestMappingInvokeBean> collectorRequestMapping() {
+        long l = System.currentTimeMillis();
+
         Map<String, RequestMappingHandlerMapping> beansOfType = applicationContext.getBeansOfType(RequestMappingHandlerMapping.class);
-        Set<RequestMappingInvokeBean> requestMappingInvokeBeans = new HashSet<>();
+        Set<SpringMvcRequestMappingInvokeBean> springMvcRequestMappingInvokeBeans = new HashSet<>();
         for (RequestMappingHandlerMapping requestMappingHandlerMapping : beansOfType.values()) {
             Map<RequestMappingInfo, HandlerMethod> handlerMethods = requestMappingHandlerMapping.getHandlerMethods();
             for (RequestMappingInfo requestMappingInfo : handlerMethods.keySet()) {
@@ -93,7 +91,7 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
                 handlerMethodMaps.put(id, new ControllerEndpoint(requestMappingInfo, handlerMethod));
                 String url = getUrlPattern(requestMappingInfo);
                 RequestMethod requestMethod = requestMappingInfo.getMethodsCondition().getMethods().stream().findFirst().orElse(RequestMethod.GET);
-                requestMappingInvokeBeans.add(RequestMappingInvokeBean.RequestMappingInvokeBeanBuilder.aRequestMappingInvokeBean()
+                springMvcRequestMappingInvokeBeans.add(SpringMvcRequestMappingInvokeBean.RequestMappingInvokeBeanBuilder.aRequestMappingInvokeBean()
                         .withId(id)
                         .withHttpMethod(requestMethod.name())
                         .withMethodName(handlerMethod.getMethod().getName())
@@ -103,8 +101,9 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
 
             }
         }
+        System.out.println(System.currentTimeMillis()-l);
 
-        return requestMappingInvokeBeans;
+        return springMvcRequestMappingInvokeBeans;
     }
 
     @Override
@@ -120,7 +119,7 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
                         });
                 if (!annotatedMethods.isEmpty()) {
                     annotatedMethods.forEach((method, s) -> {
-                        ScheduledInvokeBean scheduledInvokeBean = ScheduledInvokeBean.ScheduledInvokeBeanBuilder.aScheduledInvokeBean()
+                        SpringScheduledInvokeBean scheduledInvokeBean = SpringScheduledInvokeBean.ScheduledInvokeBeanBuilder.aScheduledInvokeBean()
                                 .withId(generatorId(method))
                                 .withClassName(method.getDeclaringClass().getName())
                                 .withMethodName(method.getName())
@@ -141,14 +140,22 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
     public void run(String... args) throws Exception {
         int availableTcpPort = SocketUtils.findAvailableTcpPort();
         pluginCommunication.startServer(availableTcpPort);
-        Map<String, Object> map = new HashMap<>();
-        map.put("port", availableTcpPort);
-        map.put("controller", collectorRequestMapping());
-        map.put("scheduled", scheduledInvokeBeans);
-        map.put("type", "bean_info");
-        map.put("serverPort", getServerPort());
-        map.put("contextPath", getContextPath());
-        PluginCommunication.send(map);
+        Set<SpringMvcRequestMappingInvokeBean> springMvcRequestMappingInvokeBeans = collectorRequestMapping();
+        PluginCommunication.send(new ClearCommunicationPackage(new ClearModel()));
+        ArrayList<SpringMvcRequestMappingInvokeBean> requestMapping = new ArrayList<>(springMvcRequestMappingInvokeBeans);
+        for (int i = 0; i < requestMapping.size(); i++) {
+            RequestMappingModel requestMappingModel = RequestMappingModel.RequestMappingModelBuilder.aRequestMappingModel()
+                    .withPort(availableTcpPort)
+                    .withContextPath(getContextPath())
+                    .withServerPort(getServerPort())
+                    .withCurrent(i+1)
+                    .withTotal(springMvcRequestMappingInvokeBeans.size())
+                    .withRequestMappingInvokeBean(requestMapping.get(i))
+                    .build();
+            RequestMappingCommunicationPackage requestMappingCommunicationPackage = new RequestMappingCommunicationPackage(requestMappingModel);
+            PluginCommunication.send(requestMappingCommunicationPackage);
+        }
+        PluginCommunication.send(new ScheduledCommunicationPackage(new ScheduledModel(scheduledInvokeBeans,availableTcpPort)));
         LOGGER.info("send request mapping success");
     }
 
