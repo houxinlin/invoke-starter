@@ -230,10 +230,7 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
             if (this.parseRequestPath) {
                 ServletRequestPathUtils.parseAndCache(mockHttpServletRequest);
             }
-
-
             HandlerExecutionChain mappedHandler = getHandler(mockHttpServletRequest);
-
 
             if (mappedHandler != null) {
                 HandlerMethod handlerMethod = endpoint.getHandlerMethod();
