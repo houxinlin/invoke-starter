@@ -22,11 +22,15 @@ import org.springframework.util.DigestUtils;
 import org.springframework.util.SocketUtils;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
+import org.springframework.web.servlet.mvc.condition.PathPatternsRequestCondition;
 import org.springframework.web.servlet.mvc.condition.PatternsRequestCondition;
 import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
+import org.springframework.web.util.pattern.PathPattern;
 
 import javax.annotation.Resource;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.util.*;
 
@@ -34,7 +38,8 @@ import java.util.*;
 public class SpringRequestMappingCollector implements CommandLineRunner,
         ApplicationContextAware, PluginCommunication.MessageCallback
         , BeanPostProcessor {
-    private static final Logger LOGGER =LoggerFactory.getLogger(SpringRequestMappingCollector.class);
+    private static final String EMPTY_STRING="";
+    private static final Logger LOGGER = LoggerFactory.getLogger(SpringRequestMappingCollector.class);
     private ApplicationContext applicationContext;
     private final Map<String, ControllerEndpoint> handlerMethodMaps = new HashMap<>();
     private final Map<String, ScheduledEndpoint> scheduledEndpointMap = new HashMap<>();
@@ -66,16 +71,33 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
         }
     }
 
+    private boolean hasMethod(Class<?> targetClass, String methodName, Class<?> retClass, Class<?>... ptypes) {
+        try {
+            MethodHandles.lookup().findVirtual(targetClass, methodName, MethodType.methodType(retClass, ptypes));
+            return true;
+        } catch (NoSuchMethodException | IllegalAccessException ignored) {
+        }
+        return false;
+
+    }
+
     private String getUrlPattern(RequestMappingInfo requestMappingInfo) {
         try {
-            return requestMappingInfo.getPatternValues().stream().findFirst().orElseGet(() -> "");
+            if (hasMethod(requestMappingInfo.getClass(), "getPatternValues", Set.class)) {
+                return requestMappingInfo.getPatternValues().stream().findFirst().orElseGet(() -> EMPTY_STRING);
+            }
+            PatternsRequestCondition patternsCondition = requestMappingInfo.getPatternsCondition();
+            if (patternsCondition != null) {
+                return patternsCondition.getPatterns().stream().findFirst().orElseGet(() -> EMPTY_STRING);
+            }
+            PathPatternsRequestCondition pathPatternsCondition = requestMappingInfo.getPathPatternsCondition();
+            if (pathPatternsCondition != null) {
+                Optional<PathPattern> first = pathPatternsCondition.getPatterns().stream().findFirst();
+                if (first.isPresent()) return first.get().getPatternString();
+            }
         } catch (Exception ignored) {
         }
-        PatternsRequestCondition patternsCondition = requestMappingInfo.getPatternsCondition();
-        if (patternsCondition != null) {
-            return requestMappingInfo.getPatternsCondition().getPatterns().stream().findFirst().orElseGet(() -> "");
-        }
-        return "";
+        return EMPTY_STRING;
     }
 
     private Set<SpringMvcRequestMappingInvokeBean> collectorRequestMapping() {
@@ -101,7 +123,7 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
 
             }
         }
-        System.out.println(System.currentTimeMillis()-l);
+        System.out.println(System.currentTimeMillis() - l);
 
         return springMvcRequestMappingInvokeBeans;
     }
@@ -148,14 +170,14 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
                     .withPort(availableTcpPort)
                     .withContextPath(getContextPath())
                     .withServerPort(getServerPort())
-                    .withCurrent(i+1)
+                    .withCurrent(i + 1)
                     .withTotal(springMvcRequestMappingInvokeBeans.size())
                     .withRequestMappingInvokeBean(requestMapping.get(i))
                     .build();
             RequestMappingCommunicationPackage requestMappingCommunicationPackage = new RequestMappingCommunicationPackage(requestMappingModel);
             PluginCommunication.send(requestMappingCommunicationPackage);
         }
-        PluginCommunication.send(new ScheduledCommunicationPackage(new ScheduledModel(scheduledInvokeBeans,availableTcpPort)));
+        PluginCommunication.send(new ScheduledCommunicationPackage(new ScheduledModel(scheduledInvokeBeans, availableTcpPort)));
         LOGGER.info("send request mapping success");
     }
 
@@ -177,7 +199,7 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
     }
 
     private String generatorId(RequestMappingInfo requestMappingInfo, HandlerMethod handlerMethod) {
-        String name = handlerMethod.getMethod().getDeclaringClass().getName()+"."+handlerMethod.getMethod().getName();
+        String name = handlerMethod.getMethod().getDeclaringClass().getName() + "." + handlerMethod.getMethod().getName();
         String project = new ApplicationHome().getDir().toString();
         String patternsString = getUrlPattern(requestMappingInfo);
         return DigestUtils.md5DigestAsHex((name + project + patternsString).getBytes());

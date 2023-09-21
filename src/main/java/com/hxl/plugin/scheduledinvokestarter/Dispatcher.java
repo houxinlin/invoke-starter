@@ -9,6 +9,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.context.ApplicationContext;
+import org.springframework.core.SpringVersion;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.core.env.Environment;
 import org.springframework.lang.Nullable;
@@ -31,7 +32,6 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.net.URI;
-import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -48,6 +48,23 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
 
     private SpringRequestMappingCollector springRequestMappingCollector;
 
+
+    private int compareVersions(String version1, String version2) {
+        String[] parts1 = version1.split("\\.");
+        String[] parts2 = version2.split("\\.");
+        int length = Math.max(parts1.length, parts2.length);
+        for (int i = 0; i < length; i++) {
+            int part1 = (i < parts1.length) ? Integer.parseInt(parts1[i]) : 0;
+            int part2 = (i < parts2.length) ? Integer.parseInt(parts2[i]) : 0;
+            if (part1 < part2) {
+                return -1;
+            } else if (part1 > part2) {
+                return 1;
+            }
+        }
+        return 0;
+    }
+
     public Dispatcher(ApplicationContext applicationContext, SpringRequestMappingCollector springRequestMappingCollector) {
         {
             this.springRequestMappingCollector = springRequestMappingCollector;
@@ -60,10 +77,12 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
                 this.handlerMappings = new ArrayList<>(matchingBeans.values());
                 AnnotationAwareOrderComparator.sort(this.handlerMappings);
             }
-            for (HandlerMapping mapping : this.handlerMappings) {
-                if (mapping.usesPathPatterns()) {
-                    this.parseRequestPath = true;
-                    break;
+            if (VersionUtils.is5Dot3()) {
+                for (HandlerMapping mapping : this.handlerMappings) {
+                    if (mapping.usesPathPatterns()) {
+                        this.parseRequestPath = true;
+                        break;
+                    }
                 }
             }
         }
@@ -171,11 +190,11 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
                             }
                             if ("file".equalsIgnoreCase(formItemValue.get("type").toString())) {
                                 if (Files.exists(Paths.get(formItemValue.get("value").toString()))) {
-                                    String name =formItemValue.get("name").toString();
-                                    byte[] value =  Files.readAllBytes(Paths.get(formItemValue.get("value").toString()));
+                                    String name = formItemValue.get("name").toString();
+                                    byte[] value = Files.readAllBytes(Paths.get(formItemValue.get("value").toString()));
 
-                                    mockHttpServletRequest.addPart(new MockPart(name,value ));
-                                    ((MockMultipartHttpServletRequest) mockHttpServletRequest).addFile(new MockMultipartFile(name,value));
+                                    mockHttpServletRequest.addPart(new MockPart(name, value));
+                                    ((MockMultipartHttpServletRequest) mockHttpServletRequest).addFile(new MockMultipartFile(name, value));
                                 }
                             }
                         }
@@ -184,7 +203,7 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
             } else {
                 mockHttpServletRequest.setContent(body.getBytes());
             }
-            if (mockHttpServletRequest.getContentType() ==null || "".equalsIgnoreCase(mockHttpServletRequest.getContentType())){
+            if (mockHttpServletRequest.getContentType() == null || "".equalsIgnoreCase(mockHttpServletRequest.getContentType())) {
                 mockHttpServletRequest.setContentType("application/json");
             }
 
@@ -249,7 +268,10 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
                         beanField.set(handler, targetObject);
                     }
                 }
-                List<HandlerInterceptor> interceptorList = mappedHandler.getInterceptorList();
+                HandlerInterceptor[] interceptors = mappedHandler.getInterceptors();
+
+                List<HandlerInterceptor> interceptorList = interceptors == null ? new ArrayList<>() : Arrays.asList(interceptors);
+
                 LOGGER.info("invoke: {}->{}", withResolvedBean.getMethod().getDeclaringClass().getName(), withResolvedBean.getMethod().getName());
                 LOGGER.info("content-type: {}", mockHttpServletRequest.getContentType());
                 LOGGER.info("post body: {}", body);
@@ -292,10 +314,10 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
 
     private void sendResponse(MockHttpServletResponse response, String requestId) {
         try {
-            List<InvokeResponseModel.Header> headers =new ArrayList<>();
+            List<InvokeResponseModel.Header> headers = new ArrayList<>();
             for (String headerName : response.getHeaderNames()) {
                 for (String value : response.getHeaders(headerName)) {
-                    headers.add(new InvokeResponseModel.Header(headerName,value));
+                    headers.add(new InvokeResponseModel.Header(headerName, value));
                 }
             }
             InvokeResponseModel invokeResponseModel = InvokeResponseModel.InvokeResponseModelBuilder.anInvokeResponseModel()
