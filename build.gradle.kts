@@ -1,12 +1,15 @@
 plugins {
     java
-    id("org.springframework.boot") version "2.7.9-SNAPSHOT"
-    id("io.spring.dependency-management") version "1.0.15.RELEASE"
+//    id("org.springframework.boot") version "3.1.4"
+    id("org.springframework.boot") version "2.7.16"
+    id("io.spring.dependency-management") version "1.1.3"
 }
 
 group = "com.hxl.plugin"
 version = "0.0.1-SNAPSHOT"
-java.sourceCompatibility = JavaVersion.VERSION_1_8
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+}
 
 configurations {
     compileOnly {
@@ -32,7 +35,13 @@ dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
-    implementation("org.springframework:spring-test:5.3.25")
+    compileOnly("jakarta.servlet:jakarta.servlet-api:6.0.0")
+// https://mvnrepository.com/artifact/javax.servlet/javax.servlet-api
+    compileOnly("javax.servlet:javax.servlet-api:4.0.1")
+
+    compileOnly("org.springframework:spring-test:5.3.25"){
+        exclude(group="org.springframework",module = "spring-core")
+    }
 }
 
 tasks.withType<Test> {

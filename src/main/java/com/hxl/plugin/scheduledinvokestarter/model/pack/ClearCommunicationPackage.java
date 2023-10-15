@@ -1,4 +1,6 @@
-package com.hxl.plugin.scheduledinvokestarter.model;
+package com.hxl.plugin.scheduledinvokestarter.model.pack;
+
+import com.hxl.plugin.scheduledinvokestarter.model.Model;
 
 public class ClearCommunicationPackage  extends CommunicationPackage{
     public ClearCommunicationPackage(Model model) {

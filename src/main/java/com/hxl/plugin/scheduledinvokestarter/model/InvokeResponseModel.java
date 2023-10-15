@@ -1,7 +1,6 @@
 package com.hxl.plugin.scheduledinvokestarter.model;
 
 import java.util.List;
-import java.util.Map;
 
 public class InvokeResponseModel  extends Model{
   public   static class Header{
@@ -35,7 +34,14 @@ public class InvokeResponseModel  extends Model{
     private List <Header>header;
     private String data;
     private String id;
-
+    public String headerToString() {
+        StringBuilder headerStringBuffer = new StringBuilder();
+        for (InvokeResponseModel.Header header : getHeader()) {
+            headerStringBuffer.append(header.getKey()).append(": ").append(header.getValue());
+            headerStringBuffer.append("\n");
+        }
+        return headerStringBuffer.toString();
+    }
     public List<Header> getHeader() {
         return header;
     }

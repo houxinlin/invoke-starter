@@ -1,7 +1,7 @@
 package com.hxl.plugin.scheduledinvokestarter;
 
 
-import com.hxl.plugin.scheduledinvokestarter.model.CommunicationPackage;
+import com.hxl.plugin.scheduledinvokestarter.model.pack.CommunicationPackage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

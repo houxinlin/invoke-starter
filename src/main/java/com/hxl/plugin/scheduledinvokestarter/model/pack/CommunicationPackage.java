@@ -1,10 +1,8 @@
-package com.hxl.plugin.scheduledinvokestarter.model;
+package com.hxl.plugin.scheduledinvokestarter.model.pack;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hxl.plugin.scheduledinvokestarter.model.Model;
-
-import java.util.Map;
 
 public abstract class CommunicationPackage {
     private final Model data;

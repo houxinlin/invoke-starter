@@ -2,7 +2,7 @@ package com.hxl.plugin.scheduledinvokestarter.model;
 
 public class RequestMappingModel  extends Model{
     private int port;
-    private SpringMvcRequestMappingInvokeBean controller;
+    private SpringMvcRequestMappingSpringInvokeEndpoint controller;
     private int total;
     private int current;
     private int  serverPort;
@@ -16,11 +16,11 @@ public class RequestMappingModel  extends Model{
         this.port = port;
     }
 
-    public SpringMvcRequestMappingInvokeBean getController() {
+    public SpringMvcRequestMappingSpringInvokeEndpoint getController() {
         return controller;
     }
 
-    public void setController(SpringMvcRequestMappingInvokeBean springMvcRequestMappingInvokeBean) {
+    public void setController(SpringMvcRequestMappingSpringInvokeEndpoint springMvcRequestMappingInvokeBean) {
         this.controller = springMvcRequestMappingInvokeBean;
     }
 
@@ -58,7 +58,7 @@ public class RequestMappingModel  extends Model{
 
     public static final class RequestMappingModelBuilder {
         private int port;
-        private SpringMvcRequestMappingInvokeBean springMvcRequestMappingInvokeBean;
+        private SpringMvcRequestMappingSpringInvokeEndpoint springMvcRequestMappingInvokeBean;
         private int total;
         private int current;
         private int serverPort;
@@ -76,7 +76,7 @@ public class RequestMappingModel  extends Model{
             return this;
         }
 
-        public RequestMappingModelBuilder withRequestMappingInvokeBean(SpringMvcRequestMappingInvokeBean springMvcRequestMappingInvokeBean) {
+        public RequestMappingModelBuilder withRequestMappingInvokeBean(SpringMvcRequestMappingSpringInvokeEndpoint springMvcRequestMappingInvokeBean) {
             this.springMvcRequestMappingInvokeBean = springMvcRequestMappingInvokeBean;
             return this;
         }

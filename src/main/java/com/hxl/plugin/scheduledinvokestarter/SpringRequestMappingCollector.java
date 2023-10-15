@@ -4,6 +4,10 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.hxl.plugin.scheduledinvokestarter.model.*;
+import com.hxl.plugin.scheduledinvokestarter.model.pack.ClearCommunicationPackage;
+import com.hxl.plugin.scheduledinvokestarter.model.pack.ProjectStartupCommunicationPackage;
+import com.hxl.plugin.scheduledinvokestarter.model.pack.RequestMappingCommunicationPackage;
+import com.hxl.plugin.scheduledinvokestarter.model.pack.ScheduledCommunicationPackage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.framework.AopProxyUtils;
@@ -16,10 +20,11 @@ import org.springframework.context.ApplicationContextAware;
 import org.springframework.core.MethodIntrospector;
 import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.mock.web.MockPart;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.annotation.Schedules;
 import org.springframework.util.DigestUtils;
-import org.springframework.util.SocketUtils;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.mvc.condition.PathPatternsRequestCondition;
@@ -28,25 +33,31 @@ import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
 import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springframework.web.util.pattern.PathPattern;
 
-import javax.annotation.Resource;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
+
 
 
 public class SpringRequestMappingCollector implements CommandLineRunner,
         ApplicationContextAware, PluginCommunication.MessageCallback
         , BeanPostProcessor {
-    private static final String EMPTY_STRING="";
+    private static final String EMPTY_STRING = "";
+
     private static final Logger LOGGER = LoggerFactory.getLogger(SpringRequestMappingCollector.class);
     private ApplicationContext applicationContext;
     private final Map<String, ControllerEndpoint> handlerMethodMaps = new HashMap<>();
     private final Map<String, ScheduledEndpoint> scheduledEndpointMap = new HashMap<>();
-    private final List<SpringScheduledInvokeBean> scheduledInvokeBeans = new ArrayList<>();
+    private final List<SpringScheduledSpringInvokeEndpoint> scheduledInvokeBeans = new ArrayList<>();
     private final PluginCommunication pluginCommunication = new PluginCommunication(this);
-    @Resource
     private ObjectMapper objectMapper;
+
+
+
+    private int availableTcpPort;
 
     public Map<String, ControllerEndpoint> getHandlerMethodMaps() {
         return handlerMethodMaps;
@@ -65,6 +76,8 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
 
             if (taskMap.getOrDefault("type", "").equals("controller")) dispatcher.invokeController(taskMap);
             if (taskMap.getOrDefault("type", "").equals("scheduled")) dispatcher.invokeSchedule(taskMap);
+            if (taskMap.getOrDefault("type", "").equals("refresh")) this.refresh();
+
 
         } catch (JsonProcessingException e) {
             e.printStackTrace();
@@ -100,11 +113,11 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
         return EMPTY_STRING;
     }
 
-    private Set<SpringMvcRequestMappingInvokeBean> collectorRequestMapping() {
+    private Set<SpringMvcRequestMappingSpringInvokeEndpoint> collectorRequestMapping() {
         long l = System.currentTimeMillis();
 
         Map<String, RequestMappingHandlerMapping> beansOfType = applicationContext.getBeansOfType(RequestMappingHandlerMapping.class);
-        Set<SpringMvcRequestMappingInvokeBean> springMvcRequestMappingInvokeBeans = new HashSet<>();
+        Set<SpringMvcRequestMappingSpringInvokeEndpoint> springMvcRequestMappingInvokeBeans = new HashSet<>();
         for (RequestMappingHandlerMapping requestMappingHandlerMapping : beansOfType.values()) {
             Map<RequestMappingInfo, HandlerMethod> handlerMethods = requestMappingHandlerMapping.getHandlerMethods();
             for (RequestMappingInfo requestMappingInfo : handlerMethods.keySet()) {
@@ -113,7 +126,7 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
                 handlerMethodMaps.put(id, new ControllerEndpoint(requestMappingInfo, handlerMethod));
                 String url = getUrlPattern(requestMappingInfo);
                 RequestMethod requestMethod = requestMappingInfo.getMethodsCondition().getMethods().stream().findFirst().orElse(RequestMethod.GET);
-                springMvcRequestMappingInvokeBeans.add(SpringMvcRequestMappingInvokeBean.RequestMappingInvokeBeanBuilder.aRequestMappingInvokeBean()
+                springMvcRequestMappingInvokeBeans.add(SpringMvcRequestMappingSpringInvokeEndpoint.RequestMappingInvokeBeanBuilder.aRequestMappingInvokeBean()
                         .withId(id)
                         .withHttpMethod(requestMethod.name())
                         .withMethodName(handlerMethod.getMethod().getName())
@@ -141,7 +154,7 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
                         });
                 if (!annotatedMethods.isEmpty()) {
                     annotatedMethods.forEach((method, s) -> {
-                        SpringScheduledInvokeBean scheduledInvokeBean = SpringScheduledInvokeBean.ScheduledInvokeBeanBuilder.aScheduledInvokeBean()
+                        SpringScheduledSpringInvokeEndpoint scheduledInvokeBean = SpringScheduledSpringInvokeEndpoint.ScheduledInvokeBeanBuilder.aScheduledInvokeBean()
                                 .withId(generatorId(method))
                                 .withClassName(method.getDeclaringClass().getName())
                                 .withMethodName(method.getName())
@@ -160,11 +173,22 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
 
     @Override
     public void run(String... args) throws Exception {
-        int availableTcpPort = SocketUtils.findAvailableTcpPort();
+        this.objectMapper =applicationContext.getBean(ObjectMapper.class);
+        byte[] bytes5 = StreamUtils.copyToByteArray(ClassLoader.getSystemClassLoader().getResourceAsStream("spring-test-5.3.30.jar"));
+        byte[] bytes6 = StreamUtils.copyToByteArray(ClassLoader.getSystemClassLoader().getResourceAsStream("spring-test-6.0.13.jar"));
+        Files.write(Paths.get(Config.getLibPath(),Config.SPRING_TEST_5),bytes5);
+        Files.write(Paths.get(Config.getLibPath(),Config.SPRING_TEST_6),bytes6 );
+        availableTcpPort = SocketUtils.findAvailableTcpPort();
         pluginCommunication.startServer(availableTcpPort);
-        Set<SpringMvcRequestMappingInvokeBean> springMvcRequestMappingInvokeBeans = collectorRequestMapping();
+        PluginCommunication.send(new ProjectStartupCommunicationPackage(new ProjectStartupModel(availableTcpPort)));
+        this.refresh();
+    }
+
+    private void refresh() {
+        Set<SpringMvcRequestMappingSpringInvokeEndpoint> springMvcRequestMappingInvokeBeans = collectorRequestMapping();
+
         PluginCommunication.send(new ClearCommunicationPackage(new ClearModel()));
-        ArrayList<SpringMvcRequestMappingInvokeBean> requestMapping = new ArrayList<>(springMvcRequestMappingInvokeBeans);
+        ArrayList<SpringMvcRequestMappingSpringInvokeEndpoint> requestMapping = new ArrayList<>(springMvcRequestMappingInvokeBeans);
         for (int i = 0; i < requestMapping.size(); i++) {
             RequestMappingModel requestMappingModel = RequestMappingModel.RequestMappingModelBuilder.aRequestMappingModel()
                     .withPort(availableTcpPort)
