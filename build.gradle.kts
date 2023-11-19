@@ -8,7 +8,6 @@ plugins {
 group = "com.hxl.plugin"
 version = "0.0.1-SNAPSHOT"
 java {
-    sourceCompatibility = JavaVersion.VERSION_17
 }
 
 configurations {
@@ -38,6 +37,7 @@ dependencies {
     compileOnly("jakarta.servlet:jakarta.servlet-api:6.0.0")
 // https://mvnrepository.com/artifact/javax.servlet/javax.servlet-api
     compileOnly("javax.servlet:javax.servlet-api:4.0.1")
+    implementation ("com.fasterxml.jackson.core:jackson-databind:2.12.5")// 使用你需要的版本
 
     compileOnly("org.springframework:spring-test:5.3.25"){
         exclude(group="org.springframework",module = "spring-core")

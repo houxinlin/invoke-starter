@@ -138,13 +138,13 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
 //        MockHttpServletRequest mockHttpServletRequest = contentType.toLowerCase().startsWith("multipart/") ?
 //                mockClassLoader.loadMockMultipartHttpServletRequest() : mockClassLoader.loadMockHttpServletRequest();
         MockHttpServletRequest mockHttpServletRequest = contentType.toLowerCase().startsWith("multipart/") ?
-               new MockMultipartHttpServletRequest() : new MockHttpServletRequest();
+                new MockMultipartHttpServletRequest() : new MockHttpServletRequest();
         mockHttpServletRequest.setCharacterEncoding("utf-8");
         return mockHttpServletRequest;
     }
 
     private MockHttpServletResponse createMockHttpServletResponse() {
-        MockHttpServletResponse mockHttpServletResponse =new MockHttpServletResponse();
+        MockHttpServletResponse mockHttpServletResponse = new MockHttpServletResponse();
         mockHttpServletResponse.setCharacterEncoding(StandardCharsets.UTF_8.name());
         return mockHttpServletResponse;
     }
@@ -182,12 +182,14 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
                                 mockHttpServletRequest.addParameter(formItemValue.get("name").toString(), formItemValue.get("value").toString());
                             }
                             if ("file".equalsIgnoreCase(formItemValue.get("type").toString())) {
-                                if (Files.exists(Paths.get(formItemValue.get("value").toString()))) {
+                                String filePath = formItemValue.get("value").toString();
+                                if ("".equals(filePath) || Files.exists(Paths.get(filePath))) {
                                     String name = formItemValue.get("name").toString();
                                     byte[] value = Files.readAllBytes(Paths.get(formItemValue.get("value").toString()));
-
-                                    VersionInstance.invokeHttpServletRequest_addPart(mockHttpServletRequest,new MockPart(name,value));
-                                    ((MockMultipartHttpServletRequest) mockHttpServletRequest).addFile(new MockMultipartFile(name,value));
+                                    VersionInstance.invokeHttpServletRequest_addPart(mockHttpServletRequest, new MockPart(name, value));
+                                    ((MockMultipartHttpServletRequest) mockHttpServletRequest).addFile(new MockMultipartFile(name, value));
+                                } else {
+                                    LOGGER.error("invalid file path:" + filePath);
                                 }
                             }
                         }
@@ -275,7 +277,7 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
         } catch (Exception e) {
             e.printStackTrace();
         } finally {
-            sendResponse(mockHttpServletResponse, id);
+            responseToPlugin(mockHttpServletResponse, id);
         }
     }
 
@@ -295,23 +297,19 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
         return false;
     }
 
-    private void sendResponse(MockHttpServletResponse response, String requestId) {
-        try {
-            List<InvokeResponseModel.Header> headers = new ArrayList<>();
-            for (String headerName : response.getHeaderNames()) {
-                for (String value : response.getHeaders(headerName)) {
-                    headers.add(new InvokeResponseModel.Header(headerName, value));
-                }
+    private void responseToPlugin(MockHttpServletResponse response, String requestId) {
+        List<InvokeResponseModel.Header> headers = new ArrayList<>();
+        for (String headerName : response.getHeaderNames()) {
+            for (String value : response.getHeaders(headerName)) {
+                headers.add(new InvokeResponseModel.Header(headerName, value));
             }
-            InvokeResponseModel invokeResponseModel = InvokeResponseModel.InvokeResponseModelBuilder.anInvokeResponseModel()
-                    .withData(response.getContentAsString(StandardCharsets.UTF_8))
-                    .withId(requestId)
-                    .withHeader(headers)
-                    .build();
-            PluginCommunication.send(new InvokeResponseCommunicationPackage(invokeResponseModel));
-        } catch (UnsupportedEncodingException e) {
-            e.printStackTrace();
         }
+        InvokeResponseModel invokeResponseModel = InvokeResponseModel.InvokeResponseModelBuilder.anInvokeResponseModel()
+                .withData(response.getContentAsByteArray())
+                .withId(requestId)
+                .withHeader(headers)
+                .build();
+        PluginCommunication.send(new InvokeResponseCommunicationPackage(invokeResponseModel));
     }
 
     protected HandlerAdapter getHandlerAdapter(Object handler) throws Exception {

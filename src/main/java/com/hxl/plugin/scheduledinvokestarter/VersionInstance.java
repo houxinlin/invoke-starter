@@ -120,6 +120,7 @@ public class VersionInstance {
 
     public static void invokeHttpServletRequest_addPart(Object instance,Object arg) {
         try {
+
             MethodType methodType = MethodType.methodType(void.class, loadPartClass());
             MethodHandle addPartHandle = MethodHandles.lookup().findVirtual(Class.forName("org.springframework.mock.web.MockHttpServletRequest"), "addPart", methodType);
             addPartHandle.bindTo(instance).invokeWithArguments(arg);

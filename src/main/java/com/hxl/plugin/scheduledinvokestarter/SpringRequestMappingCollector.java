@@ -22,7 +22,10 @@ import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.mock.web.MockPart;
 import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
 import org.springframework.scheduling.annotation.Schedules;
+import org.springframework.scheduling.config.ScheduledTask;
+import org.springframework.scheduling.support.ScheduledMethodRunnable;
 import org.springframework.util.DigestUtils;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.bind.annotation.RequestMethod;
@@ -43,10 +46,8 @@ import java.util.*;
 
 
 public class SpringRequestMappingCollector implements CommandLineRunner,
-        ApplicationContextAware, PluginCommunication.MessageCallback
-        , BeanPostProcessor {
+        ApplicationContextAware, PluginCommunication.MessageCallback {
     private static final String EMPTY_STRING = "";
-
     private static final Logger LOGGER = LoggerFactory.getLogger(SpringRequestMappingCollector.class);
     private ApplicationContext applicationContext;
     private final Map<String, ControllerEndpoint> handlerMethodMaps = new HashMap<>();
@@ -54,9 +55,6 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
     private final List<SpringScheduledSpringInvokeEndpoint> scheduledInvokeBeans = new ArrayList<>();
     private final PluginCommunication pluginCommunication = new PluginCommunication(this);
     private ObjectMapper objectMapper;
-
-
-
     private int availableTcpPort;
 
     public Map<String, ControllerEndpoint> getHandlerMethodMaps() {
@@ -141,46 +139,44 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
         return springMvcRequestMappingInvokeBeans;
     }
 
-    @Override
-    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        try {
-            Class<?> targetClass = AopProxyUtils.ultimateTargetClass(bean);
-            if (AnnotationUtils.isCandidateClass(targetClass, Arrays.asList(Scheduled.class, Schedules.class))) {
-                Map<Method, Set<Scheduled>> annotatedMethods = MethodIntrospector.selectMethods(targetClass,
-                        (MethodIntrospector.MetadataLookup<Set<Scheduled>>) method -> {
-                            Set<Scheduled> scheduledAnnotations = AnnotatedElementUtils.getMergedRepeatableAnnotations(
-                                    method, Scheduled.class, Schedules.class);
-                            return (!scheduledAnnotations.isEmpty() ? scheduledAnnotations : null);
-                        });
-                if (!annotatedMethods.isEmpty()) {
-                    annotatedMethods.forEach((method, s) -> {
-                        SpringScheduledSpringInvokeEndpoint scheduledInvokeBean = SpringScheduledSpringInvokeEndpoint.ScheduledInvokeBeanBuilder.aScheduledInvokeBean()
-                                .withId(generatorId(method))
-                                .withClassName(method.getDeclaringClass().getName())
-                                .withMethodName(method.getName())
-                                .build();
-                        ScheduledEndpoint scheduledEndpoint = new ScheduledEndpoint(method, bean);
-                        scheduledEndpointMap.put(scheduledInvokeBean.getId(), scheduledEndpoint);
-                        scheduledInvokeBeans.add(scheduledInvokeBean);
-                    });
-                }
-            }
-        } catch (Exception ignored) {
-        }
-        return BeanPostProcessor.super.postProcessBeforeInitialization(bean, beanName);
-    }
+//    @Override
+//    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+//        try {
+//            Class<?> targetClass = AopProxyUtils.ultimateTargetClass(bean);
+//            if (AnnotationUtils.isCandidateClass(targetClass, Arrays.asList(Scheduled.class, Schedules.class))) {
+//                Map<Method, Set<Scheduled>> annotatedMethods = MethodIntrospector.selectMethods(targetClass,
+//                        (MethodIntrospector.MetadataLookup<Set<Scheduled>>) method -> {
+//                            Set<Scheduled> scheduledAnnotations = AnnotatedElementUtils.getMergedRepeatableAnnotations(
+//                                    method, Scheduled.class, Schedules.class);
+//                            return (!scheduledAnnotations.isEmpty() ? scheduledAnnotations : null);
+//                        });
+//                if (!annotatedMethods.isEmpty()) {
+//                    annotatedMethods.forEach((method, s) -> {
+//                        SpringScheduledSpringInvokeEndpoint scheduledInvokeBean = SpringScheduledSpringInvokeEndpoint.ScheduledInvokeBeanBuilder.aScheduledInvokeBean()
+//                                .withId(generatorId(method))
+//                                .withClassName(method.getDeclaringClass().getName())
+//                                .withMethodName(method.getName())
+//                                .build();
+//                        ScheduledEndpoint scheduledEndpoint = new ScheduledEndpoint(method, bean);
+//                        scheduledEndpointMap.put(scheduledInvokeBean.getId(), scheduledEndpoint);
+//                        scheduledInvokeBeans.add(scheduledInvokeBean);
+//                    });
+//                }
+//            }
+//        } catch (Exception ignored) {
+//        }
+//        return BeanPostProcessor.super.postProcessBeforeInitialization(bean, beanName);
+//    }
 
 
     @Override
     public void run(String... args) throws Exception {
         this.objectMapper =applicationContext.getBean(ObjectMapper.class);
-        byte[] bytes5 = StreamUtils.copyToByteArray(ClassLoader.getSystemClassLoader().getResourceAsStream("spring-test-5.3.30.jar"));
-        byte[] bytes6 = StreamUtils.copyToByteArray(ClassLoader.getSystemClassLoader().getResourceAsStream("spring-test-6.0.13.jar"));
-        Files.write(Paths.get(Config.getLibPath(),Config.SPRING_TEST_5),bytes5);
-        Files.write(Paths.get(Config.getLibPath(),Config.SPRING_TEST_6),bytes6 );
         availableTcpPort = SocketUtils.findAvailableTcpPort();
         pluginCommunication.startServer(availableTcpPort);
-        PluginCommunication.send(new ProjectStartupCommunicationPackage(new ProjectStartupModel(availableTcpPort)));
+        ProjectStartupModel projectStartupModel = new ProjectStartupModel(availableTcpPort);
+        projectStartupModel.setProjectPort(getServerPort());
+        PluginCommunication.send(new ProjectStartupCommunicationPackage(projectStartupModel));
         this.refresh();
     }
 
@@ -200,6 +196,23 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
                     .build();
             RequestMappingCommunicationPackage requestMappingCommunicationPackage = new RequestMappingCommunicationPackage(requestMappingModel);
             PluginCommunication.send(requestMappingCommunicationPackage);
+        }
+        ScheduledAnnotationBeanPostProcessor scheduledAnnotationBeanPostProcessor = this.applicationContext.getBean(ScheduledAnnotationBeanPostProcessor.class);
+        Set<ScheduledTask> scheduledTasks = scheduledAnnotationBeanPostProcessor.getScheduledTasks();
+        for (ScheduledTask scheduledTask : scheduledTasks) {
+            Runnable runnable = scheduledTask.getTask().getRunnable();
+            if (runnable instanceof ScheduledMethodRunnable){
+                Method method = ((ScheduledMethodRunnable) runnable).getMethod();
+
+                SpringScheduledSpringInvokeEndpoint scheduledInvokeBean = SpringScheduledSpringInvokeEndpoint.ScheduledInvokeBeanBuilder.aScheduledInvokeBean()
+                                .withId(generatorId(method))
+                                .withClassName(method.getDeclaringClass().getName())
+                                .withMethodName(method.getName())
+                                .build();
+                        ScheduledEndpoint scheduledEndpoint = new ScheduledEndpoint(method, ((ScheduledMethodRunnable) runnable).getTarget());
+                        scheduledEndpointMap.put(scheduledInvokeBean.getId(), scheduledEndpoint);
+                        scheduledInvokeBeans.add(scheduledInvokeBean);
+            }
         }
         PluginCommunication.send(new ScheduledCommunicationPackage(new ScheduledModel(scheduledInvokeBeans, availableTcpPort)));
         LOGGER.info("send request mapping success");
