@@ -1,10 +1,9 @@
 package com.hxl.plugin.scheduledinvokestarter;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.hxl.plugin.scheduledinvokestarter.model.InvokeReceiveModel;
 import com.hxl.plugin.scheduledinvokestarter.model.pack.InvokeResponseCommunicationPackage;
 import com.hxl.plugin.scheduledinvokestarter.model.InvokeResponseModel;
+import com.hxl.plugin.scheduledinvokestarter.model.pack.ReceiveCommunicationPackage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanFactoryUtils;
@@ -27,27 +26,26 @@ import org.springframework.web.util.UriComponentsBuilder;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.net.URI;
+import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Collectors;
 
-public class Dispatcher implements PluginCommunication.MessageCallback {
+public class Dispatcher {
     private final Logger LOGGER = LoggerFactory.getLogger(SpringRequestMappingCollector.class);
     private final Environment environment;
-    private final ObjectMapper objectMapper;
     private int interceptorIndex;
     private List<HandlerMapping> handlerMappings;
     private boolean parseRequestPath;
     private List<HandlerAdapter> handlerAdapters;
     private final SpringRequestMappingCollector springRequestMappingCollector;
 
-
     public Dispatcher(ApplicationContext applicationContext, SpringRequestMappingCollector springRequestMappingCollector) {
         {
             this.springRequestMappingCollector = springRequestMappingCollector;
             this.environment = applicationContext.getEnvironment();
-            this.objectMapper = applicationContext.getBean(ObjectMapper.class);
 
             Map<String, HandlerMapping> matchingBeans =
                     BeanFactoryUtils.beansOfTypeIncludingAncestors(applicationContext, HandlerMapping.class, true, false);
@@ -76,23 +74,9 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
 
     }
 
-    @Override
-    public void pluginMessage(String msg) {
-        try {
-            Map<String, Object> taskMap = objectMapper.readValue(msg, new TypeReference<Map<String, Object>>() {
-            });
-            if (taskMap.getOrDefault("type", "").equals("controller")) invokeController(taskMap);
-            if (taskMap.getOrDefault("type", "").equals("scheduled")) invokeSchedule(taskMap);
-
-        } catch (JsonProcessingException e) {
-            e.printStackTrace();
-        }
-    }
-
-
     private boolean applyPreHandle(List<HandlerInterceptor> interceptorList,
                                    Object handler,
-                                   Object request, Object response) throws Exception {
+                                   Object request, Object response) {
 
         for (int i = 0; i < interceptorList.size(); i++) {
             HandlerInterceptor interceptor = interceptorList.get(i);
@@ -100,11 +84,6 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
                 triggerAfterCompletion(interceptorList, handler, request, response, null);
                 return false;
             }
-//                if (!interceptor.preHandle(request, response, handler)) {
-//                    triggerAfterCompletion(interceptorList, handler, request, response, null);
-//                    return false;
-//                }
-
             this.interceptorIndex = i;
         }
         return true;
@@ -135,8 +114,6 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
 
 
     private MockHttpServletRequest createMockHttpServletRequest(String contentType) {
-//        MockHttpServletRequest mockHttpServletRequest = contentType.toLowerCase().startsWith("multipart/") ?
-//                mockClassLoader.loadMockMultipartHttpServletRequest() : mockClassLoader.loadMockHttpServletRequest();
         MockHttpServletRequest mockHttpServletRequest = contentType.toLowerCase().startsWith("multipart/") ?
                 new MockMultipartHttpServletRequest() : new MockHttpServletRequest();
         mockHttpServletRequest.setCharacterEncoding("utf-8");
@@ -152,6 +129,10 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
     public void invokeController(Map<String, Object> taskMap) {
         MockHttpServletResponse mockHttpServletResponse = createMockHttpServletResponse();
         String id = taskMap.getOrDefault("id", "").toString();
+        InvokeReceiveModel invokeReceiveModel = new InvokeReceiveModel();
+        invokeReceiveModel.setRequestId(id);
+        PluginCommunication.send(new ReceiveCommunicationPackage(invokeReceiveModel));
+
         try {
             String contentType = taskMap.getOrDefault("contentType", "").toString();
             MockHttpServletRequest mockHttpServletRequest = createMockHttpServletRequest(contentType);
@@ -227,7 +208,7 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
             mockHttpServletRequest.setRemotePort(6666);
             MultiValueMap<String, String> queryParams = uriComponents.getQueryParams();
             for (String queryKey : queryParams.keySet()) {
-                mockHttpServletRequest.addParameter(queryKey, queryParams.get(queryKey).toArray(new String[0]));
+                mockHttpServletRequest.addParameter(queryKey, urlDecode(queryParams.get(queryKey)).toArray(new String[0]));
             }
             if (mockHttpServletRequest.getContentType().contains("www-form-urlencoded")) {
                 UriComponents components = UriComponentsBuilder.newInstance()
@@ -235,7 +216,7 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
                         .build();
                 MultiValueMap<String, String> bodyQueryParams = components.getQueryParams();
                 for (String queryKey : bodyQueryParams.keySet()) {
-                    mockHttpServletRequest.setParameter(queryKey, bodyQueryParams.get(queryKey).toArray(new String[0]));
+                    mockHttpServletRequest.setParameter(queryKey, urlDecode(bodyQueryParams.get(queryKey)).toArray(new String[0]));
                 }
             }
 
@@ -243,7 +224,6 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
             RequestContextHolder.setRequestAttributes(servletRequestAttributes);
             if (this.parseRequestPath) {
                 VersionInstance.invokeServletRequestPathUtils_parseAndCache(mockHttpServletRequest);
-//                ServletRequestPathUtils.parseAndCache(mockHttpServletRequest);
             }
             HandlerExecutionChain mappedHandler = getHandler(mockHttpServletRequest);
 
@@ -271,7 +251,6 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
                     }
                 }
                 VersionInstance.invokeHandlerAdapter_handle(ha, mockHttpServletRequest, mockHttpServletResponse, handler);
-//                ha.handle(mockHttpServletRequest, mockHttpServletResponse, handler);//invoke
                 applyPostHandle(interceptorList, handler, mockHttpServletRequest, mockHttpServletResponse, new ModelAndView());
             }
         } catch (Exception e) {
@@ -281,20 +260,14 @@ public class Dispatcher implements PluginCommunication.MessageCallback {
         }
     }
 
-
-    public boolean isTextContentType(String contentType) {
-        if (contentType != null) {
-            String lowerCaseContentType = contentType.toLowerCase();
-            // 判断是否为文本类型
-            if (lowerCaseContentType.startsWith("text/") ||
-                    lowerCaseContentType.contains("application/json") ||
-                    lowerCaseContentType.contains("application/xml") ||
-                    lowerCaseContentType.contains("application/xhtml+xml") ||
-                    lowerCaseContentType.contains("urlencoded")) {
-                return true;
+    private List<String> urlDecode(List<String> values) {
+        return values.stream().map(s -> {
+            try {
+                return URLDecoder.decode(s, "utf-8");
+            } catch (UnsupportedEncodingException ignored) {
             }
-        }
-        return false;
+            return s;
+        }).collect(Collectors.toList());
     }
 
     private void responseToPlugin(MockHttpServletResponse response, String requestId) {

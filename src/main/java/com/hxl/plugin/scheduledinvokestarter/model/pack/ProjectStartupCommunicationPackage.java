@@ -6,7 +6,6 @@ public class ProjectStartupCommunicationPackage  extends CommunicationPackage{
     public ProjectStartupCommunicationPackage(ProjectStartupModel model) {
         super(model);
     }
-
     @Override
     public String getType() {
         return "startup";

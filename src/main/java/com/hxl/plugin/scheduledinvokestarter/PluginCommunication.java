@@ -96,20 +96,6 @@ public class PluginCommunication implements Runnable {
         }
     }
 
-//    public static void send(Map<String, Object> body,int total,) {
-//        String port = System.getProperty("hxl.spring.invoke.port");
-//        if (port == null) {
-//            LOGGER.error("spring invoke:not found port");
-//            return;
-//        }
-//        try (SocketChannel pluginServer = SocketChannel.open(new InetSocketAddress("localhost", Integer.parseInt(port)))) {
-//            String value = new ObjectMapper().writeValueAsString(body);
-//            System.out.println(value.getBytes().length);
-//            System.out.println(pluginServer.write(Charset.defaultCharset().encode(value)));
-//        } catch (Exception e) {
-//            LOGGER.error("spring invoke: send info err" + e.getMessage());
-//        }
-//    }
     public static void send(CommunicationPackage communicationPackage) {
         String port = System.getProperty("hxl.spring.invoke.port");
         if (port == null) {
@@ -119,20 +105,7 @@ public class PluginCommunication implements Runnable {
         try (SocketChannel pluginServer = SocketChannel.open(new InetSocketAddress("localhost", Integer.parseInt(port)))) {
             pluginServer.write(Charset.defaultCharset().encode(communicationPackage.toJson()));
         } catch (Exception e) {
-            LOGGER.error("spring invoke: send info err" + e.getMessage());
         }
     }
-//    public static void send(Map<String, Object> body) {
-//        String port = System.getProperty("hxl.spring.invoke.port");
-//        if (port == null) {
-//            LOGGER.error("spring invoke:not found port");
-//            return;
-//        }
-//        try (SocketChannel pluginServer = SocketChannel.open(new InetSocketAddress("localhost", Integer.parseInt(port)))) {
-//            String value = new ObjectMapper().writeValueAsString(body);
-//            System.out.println(value.getBytes().length);
-//            System.out.println(pluginServer.write(Charset.defaultCharset().encode(value)));
-//        } catch (Exception e) {
-//            LOGGER.error("spring invoke: send info err" + e.getMessage());
-//        }
+
 }
