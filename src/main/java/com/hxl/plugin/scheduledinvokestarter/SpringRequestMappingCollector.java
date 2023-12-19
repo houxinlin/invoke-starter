@@ -29,6 +29,9 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
 
 
 public class SpringRequestMappingCollector implements CommandLineRunner,
@@ -50,20 +53,31 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
     }
 
     public static JsonMapper jsonMapper;
+    private final ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
+            Runtime.getRuntime().availableProcessors(), 1, TimeUnit.MINUTES, new LinkedBlockingQueue<>());
 
     @Override
     public void pluginMessage(String msg) {
-        try {
-            Map<String, Object> taskMap = jsonMapper.toMap(msg);
-            Dispatcher dispatcher = new Dispatcher(this.applicationContext, this);
+     threadPoolExecutor.submit(new Runnable() {
+         @Override
+         public void run() {
+             try {
+                 Map<String, Object> taskMap = jsonMapper.toMap(msg);
+                 if (SystemUtils.isDebug()){
+                     System.out.println(taskMap);
+                 }
+                 Dispatcher dispatcher = new Dispatcher(SpringRequestMappingCollector.this.applicationContext,
+                         SpringRequestMappingCollector.this);
 
-            if (taskMap.getOrDefault("type", "").equals("controller")) dispatcher.invokeController(taskMap);
-            if (taskMap.getOrDefault("type", "").equals("scheduled")) dispatcher.invokeSchedule(taskMap);
-            if (taskMap.getOrDefault("type", "").equals("refresh")) this.refresh();
+                 if (taskMap.getOrDefault("type", "").equals("controller")) dispatcher.invokeController(taskMap);
+                 if (taskMap.getOrDefault("type", "").equals("scheduled")) dispatcher.invokeSchedule(taskMap);
+                 if (taskMap.getOrDefault("type", "").equals("refresh")) SpringRequestMappingCollector.this.refresh();
 
-        } catch (JsonException e) {
-            e.printStackTrace();
-        }
+             } catch (JsonException e) {
+                 e.printStackTrace();
+             }
+         }
+     });
     }
 
     private boolean hasMethod(Class<?> targetClass, String methodName, Class<?> retClass, Class<?>... ptypes) {
@@ -191,7 +205,7 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
             PluginCommunication.send(requestMappingCommunicationPackage);
         }
         ScheduledAnnotationBeanPostProcessor scheduledAnnotationBeanPostProcessorBean = getScheduledAnnotationBeanPostProcessorBean();
-        if (scheduledAnnotationBeanPostProcessorBean!=null){
+        if (scheduledAnnotationBeanPostProcessorBean != null) {
             Set<ScheduledTask> scheduledTasks = scheduledAnnotationBeanPostProcessorBean.getScheduledTasks();
             for (ScheduledTask scheduledTask : scheduledTasks) {
                 Runnable runnable = scheduledTask.getTask().getRunnable();
@@ -210,6 +224,7 @@ public class SpringRequestMappingCollector implements CommandLineRunner,
         }
         PluginCommunication.send(new ScheduledCommunicationPackage(new ScheduledModel(scheduledInvokeBeans, availableTcpPort)));
     }
+
     private int getServerPort() {
         String port = applicationContext.getEnvironment().getProperty("server.port");
         if (port == null || "0".equalsIgnoreCase(port)) return 8080;

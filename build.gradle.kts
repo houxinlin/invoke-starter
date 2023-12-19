@@ -7,9 +7,11 @@ plugins {
 
 group = "com.hxl.plugin"
 version = "0.0.1-SNAPSHOT"
-java {
-}
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
 configurations {
     compileOnly {
         extendsFrom(configurations.annotationProcessor.get())

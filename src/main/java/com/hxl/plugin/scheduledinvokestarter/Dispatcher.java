@@ -23,12 +23,14 @@ import org.springframework.web.servlet.mvc.condition.RequestMethodsRequestCondit
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
+import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
 import java.net.URI;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -163,12 +165,14 @@ public class Dispatcher {
                                 mockHttpServletRequest.addParameter(formItemValue.get("name").toString(), formItemValue.get("value").toString());
                             }
                             if ("file".equalsIgnoreCase(formItemValue.get("type").toString())) {
-                                String filePath = formItemValue.get("value").toString();
-                                if ("".equals(filePath) || Files.exists(Paths.get(filePath))) {
+                                String valueItem = formItemValue.get("value").toString();
+                                Path filePath = Paths.get(valueItem);
+                                if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
                                     String name = formItemValue.get("name").toString();
-                                    byte[] value = Files.readAllBytes(Paths.get(formItemValue.get("value").toString()));
+                                    byte[] value = Files.readAllBytes(filePath);
                                     VersionInstance.invokeHttpServletRequest_addPart(mockHttpServletRequest, new MockPart(name, value));
-                                    ((MockMultipartHttpServletRequest) mockHttpServletRequest).addFile(new MockMultipartFile(name, value));
+                                    MockMultipartFile mockMultipartFile = new MockMultipartFile(name, filePath.toFile().getName(), probeContentType(filePath), value);
+                                    ((MockMultipartHttpServletRequest) mockHttpServletRequest).addFile(mockMultipartFile);
                                 } else {
                                     LOGGER.error("invalid file path:" + filePath);
                                 }
@@ -258,6 +262,15 @@ public class Dispatcher {
         } finally {
             responseToPlugin(mockHttpServletResponse, id);
         }
+    }
+
+    private String probeContentType(Path path) {
+        if (Files.isDirectory(path)) return "";
+        try {
+            return Files.probeContentType(path);
+        } catch (IOException ignored) {
+        }
+        return "application/stream";
     }
 
     private List<String> urlDecode(List<String> values) {
