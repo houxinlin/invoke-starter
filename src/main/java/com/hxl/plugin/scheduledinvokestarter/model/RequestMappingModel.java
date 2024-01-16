@@ -1,44 +1,13 @@
 package com.hxl.plugin.scheduledinvokestarter.model;
 
+import com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller;
+
+import java.util.Set;
+
 public class RequestMappingModel  extends Model{
-    private int port;
-    private SpringMvcRequestMappingSpringInvokeEndpoint controller;
-    private int total;
-    private int current;
-    private int  serverPort;
-    private String contextPath;
-
-    public int getPort() {
-        return port;
-    }
-
-    public void setPort(int port) {
-        this.port = port;
-    }
-
-    public SpringMvcRequestMappingSpringInvokeEndpoint getController() {
-        return controller;
-    }
-
-    public void setController(SpringMvcRequestMappingSpringInvokeEndpoint springMvcRequestMappingInvokeBean) {
-        this.controller = springMvcRequestMappingInvokeBean;
-    }
-
-    public int getTotal() {
-        return total;
-    }
-
-    public void setTotal(int total) {
-        this.total = total;
-    }
-
-    public int getCurrent() {
-        return current;
-    }
-
-    public void setCurrent(int current) {
-        this.current = current;
-    }
+    private int pluginPort;
+    private Set<Controller> controllers;
+    private int serverPort;
 
     public int getServerPort() {
         return serverPort;
@@ -48,68 +17,20 @@ public class RequestMappingModel  extends Model{
         this.serverPort = serverPort;
     }
 
-    public String getContextPath() {
-        return contextPath;
+    public int getPluginPort() {
+        return pluginPort;
     }
 
-    public void setContextPath(String contextPath) {
-        this.contextPath = contextPath;
+    public void setPluginPort(int pluginPort) {
+        this.pluginPort = pluginPort;
+    }
+    public Set<Controller> getControllers() {
+        return controllers;
     }
 
-    public static final class RequestMappingModelBuilder {
-        private int port;
-        private SpringMvcRequestMappingSpringInvokeEndpoint springMvcRequestMappingInvokeBean;
-        private int total;
-        private int current;
-        private int serverPort;
-        private String contextPath;
-
-        private RequestMappingModelBuilder() {
-        }
-
-        public static RequestMappingModelBuilder aRequestMappingModel() {
-            return new RequestMappingModelBuilder();
-        }
-
-        public RequestMappingModelBuilder withPort(int port) {
-            this.port = port;
-            return this;
-        }
-
-        public RequestMappingModelBuilder withRequestMappingInvokeBean(SpringMvcRequestMappingSpringInvokeEndpoint springMvcRequestMappingInvokeBean) {
-            this.springMvcRequestMappingInvokeBean = springMvcRequestMappingInvokeBean;
-            return this;
-        }
-
-        public RequestMappingModelBuilder withTotal(int total) {
-            this.total = total;
-            return this;
-        }
-
-        public RequestMappingModelBuilder withCurrent(int current) {
-            this.current = current;
-            return this;
-        }
-
-        public RequestMappingModelBuilder withServerPort(int serverPort) {
-            this.serverPort = serverPort;
-            return this;
-        }
-
-        public RequestMappingModelBuilder withContextPath(String contextPath) {
-            this.contextPath = contextPath;
-            return this;
-        }
-
-        public RequestMappingModel build() {
-            RequestMappingModel requestMappingModel = new RequestMappingModel();
-            requestMappingModel.setPort(port);
-            requestMappingModel.setController(springMvcRequestMappingInvokeBean);
-            requestMappingModel.setTotal(total);
-            requestMappingModel.setCurrent(current);
-            requestMappingModel.setServerPort(serverPort);
-            requestMappingModel.setContextPath(contextPath);
-            return requestMappingModel;
-        }
+    public void setControllers(Set<Controller> controllers) {
+        this.controllers = controllers;
     }
+
+
 }

@@ -1,7 +1,9 @@
 package com.hxl.plugin.scheduledinvokestarter;
 
 
+import com.hxl.plugin.scheduledinvokestarter.json.JsonMapper;
 import com.hxl.plugin.scheduledinvokestarter.model.pack.CommunicationPackage;
+import com.hxl.plugin.scheduledinvokestarter.utils.SystemUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -28,6 +30,7 @@ public class PluginCommunication implements Runnable {
     private final MessageCallback messageCallback;
     private SocketChannel socketChannel;
     private Selector selector;
+    private JsonMapper jsonMapper;
 
     public PluginCommunication(MessageCallback messageCallback) {
         this.messageCallback = messageCallback;
@@ -61,7 +64,7 @@ public class PluginCommunication implements Runnable {
         int read = channel.read(buffer);
         if (read <= 0) return getByteAndClose(key);
         if (key.attachment() == null) key.attach(new ByteArrayOutputStream());
-        ((Buffer)buffer).flip();
+        ((Buffer) buffer).flip();
         int remainingBytes = buffer.remaining();
         byte[] data = new byte[remainingBytes];
         System.arraycopy(buffer.array(), buffer.position(), data, 0, remainingBytes);
@@ -99,13 +102,16 @@ public class PluginCommunication implements Runnable {
 
     public static void send(CommunicationPackage communicationPackage) {
         String port = System.getProperty("hxl.spring.invoke.port");
+        System.out.println(port +"send");
         if (port == null) {
-            LOGGER.error("spring invoke:not found port");
             return;
         }
         try (SocketChannel pluginServer = SocketChannel.open(new InetSocketAddress("localhost", Integer.parseInt(port)))) {
-            pluginServer.write(Charset.defaultCharset().encode(communicationPackage.toJson()));
+            String json = communicationPackage.toJson();
+            if (SystemUtils.isDebug()) System.out.println(json);
+            pluginServer.write(Charset.defaultCharset().encode(json));
         } catch (Exception e) {
+            e.printStackTrace();
         }
     }
 

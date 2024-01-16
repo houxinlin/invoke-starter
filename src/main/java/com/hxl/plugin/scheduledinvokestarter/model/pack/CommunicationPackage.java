@@ -1,6 +1,5 @@
 package com.hxl.plugin.scheduledinvokestarter.model.pack;
 
-import com.hxl.plugin.scheduledinvokestarter.SpringRequestMappingCollector;
 import com.hxl.plugin.scheduledinvokestarter.json.JsonMapper;
 import com.hxl.plugin.scheduledinvokestarter.json.JsonMapperFactory;
 import com.hxl.plugin.scheduledinvokestarter.model.Model;
@@ -16,8 +15,10 @@ public abstract class CommunicationPackage {
     public abstract String getType();
 
     public String toJson() {
-        if (data == null) return "{}";
-        assert SpringRequestMappingCollector.jsonMapper != null;
-        return SpringRequestMappingCollector.jsonMapper.toJSONString(data);
+        JsonMapper jsonMapper = JsonMapperFactory.getJsonMapper();
+        if (jsonMapper != null) {
+            return JsonMapperFactory.getJsonMapper().toJSONString(this.data);
+        }
+        return "";
     }
 }

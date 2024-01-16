@@ -3,6 +3,15 @@ package com.hxl.plugin.scheduledinvokestarter.model;
 public class SpringScheduledSpringInvokeEndpoint extends SpringInvokeEndpoint {
     private String className;
     private String methodName;
+    private String springInnerId;
+
+    public String getSpringInnerId() {
+        return springInnerId;
+    }
+
+    public void setSpringInnerId(String springInnerId) {
+        this.springInnerId = springInnerId;
+    }
 
     public String getClassName() {
         return className;

@@ -1,9 +1,13 @@
-package com.hxl.plugin.scheduledinvokestarter;
+package com.hxl.plugin.scheduledinvokestarter.components.spring.controller;
 
+import com.hxl.plugin.scheduledinvokestarter.*;
+import com.hxl.plugin.scheduledinvokestarter.compatible.VersionInstance;
 import com.hxl.plugin.scheduledinvokestarter.model.InvokeReceiveModel;
 import com.hxl.plugin.scheduledinvokestarter.model.pack.InvokeResponseCommunicationPackage;
 import com.hxl.plugin.scheduledinvokestarter.model.InvokeResponseModel;
 import com.hxl.plugin.scheduledinvokestarter.model.pack.ReceiveCommunicationPackage;
+import com.hxl.plugin.scheduledinvokestarter.utils.VersionUtils;
+import com.hxl.plugin.scheduledinvokestarter.utils.exception.InvokeException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.BeanFactoryUtils;
@@ -14,12 +18,11 @@ import org.springframework.lang.Nullable;
 import org.springframework.mock.web.*;
 import org.springframework.test.util.AopTestUtils;
 import org.springframework.util.MultiValueMap;
-import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.util.StreamUtils;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.*;
-import org.springframework.web.servlet.mvc.condition.RequestMethodsRequestCondition;
 import org.springframework.web.util.UriComponents;
 import org.springframework.web.util.UriComponentsBuilder;
 
@@ -35,18 +38,20 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.stream.Collectors;
 
+
 public class Dispatcher {
-    private final Logger LOGGER = LoggerFactory.getLogger(SpringRequestMappingCollector.class);
+    private final Logger LOGGER = LoggerFactory.getLogger(SpringRequestMappingComponent.class);
     private final Environment environment;
     private int interceptorIndex;
     private List<HandlerMapping> handlerMappings;
     private boolean parseRequestPath;
     private List<HandlerAdapter> handlerAdapters;
-    private final SpringRequestMappingCollector springRequestMappingCollector;
+    private final SpringRequestMappingComponent springRequestMappingComponent;
+    private RequestToViewNameTranslator viewNameTranslator;
 
-    public Dispatcher(ApplicationContext applicationContext, SpringRequestMappingCollector springRequestMappingCollector) {
+    public Dispatcher(ApplicationContext applicationContext, SpringRequestMappingComponent springRequestMappingComponent) {
         {
-            this.springRequestMappingCollector = springRequestMappingCollector;
+            this.springRequestMappingComponent = springRequestMappingComponent;
             this.environment = applicationContext.getEnvironment();
 
             Map<String, HandlerMapping> matchingBeans =
@@ -97,7 +102,6 @@ public class Dispatcher {
             HandlerInterceptor interceptor = interceptorList.get(i);
             try {
                 VersionInstance.invokeHandlerInterceptor_afterCompletion(interceptor, request, response, handler, ex);
-//                interceptor.afterCompletion(request, response, handler, ex);
             } catch (Throwable ex2) {
             }
         }
@@ -119,6 +123,7 @@ public class Dispatcher {
         MockHttpServletRequest mockHttpServletRequest = contentType.toLowerCase().startsWith("multipart/") ?
                 new MockMultipartHttpServletRequest() : new MockHttpServletRequest();
         mockHttpServletRequest.setCharacterEncoding("utf-8");
+        mockHttpServletRequest.setContentType(contentType);
         return mockHttpServletRequest;
     }
 
@@ -128,72 +133,64 @@ public class Dispatcher {
         return mockHttpServletResponse;
     }
 
-    public void invokeController(Map<String, Object> taskMap) {
+    private void doInvokeController(ControllerRequestData requestData, int serverPort) {
         MockHttpServletResponse mockHttpServletResponse = createMockHttpServletResponse();
-        String id = taskMap.getOrDefault("id", "").toString();
-        InvokeReceiveModel invokeReceiveModel = new InvokeReceiveModel();
-        invokeReceiveModel.setRequestId(id);
-        PluginCommunication.send(new ReceiveCommunicationPackage(invokeReceiveModel));
+        MockHttpServletRequest mockHttpServletRequest = null;
+        Exception exception = null;
+        HandlerExecutionChain mappedHandler = null;
+        List<HandlerInterceptor> interceptorList = null;
+        Object handler = null;
 
         try {
-            String contentType = taskMap.getOrDefault("contentType", "").toString();
-            MockHttpServletRequest mockHttpServletRequest = createMockHttpServletRequest(contentType);
-            String body = taskMap.getOrDefault("body", "").toString();
+            String contentType = Optional.ofNullable(requestData.getContentType()).orElse("application/json");
+            mockHttpServletRequest = createMockHttpServletRequest(contentType);
+            String body = Optional.ofNullable(requestData.getBody()).orElse("");
+            String url = Optional.ofNullable(requestData.getUrl()).orElse("/");
 
-            boolean useProxyObject = (Boolean) taskMap.getOrDefault("useProxyObject", false);
-            boolean interceptor = (boolean) taskMap.getOrDefault("useInterceptor", false);
-
-            String url = taskMap.getOrDefault("url", "").toString();
-            Object headers = taskMap.get("headers");
-            if (headers instanceof List) {
-                List<?> headerList = (List<?>) headers;
-                for (Object o : headerList) {
-                    if (o instanceof Map) {
-                        mockHttpServletRequest.addHeader(((Map<?, ?>) o).get("key").toString().toLowerCase(), ((Map<?, ?>) o).get("value").toString().toLowerCase());
-                    }
-                }
+            for (KeyValue keyValue : Optional.ofNullable(requestData.getHeaders()).orElse(new ArrayList<>())) {
+                mockHttpServletRequest.addHeader(keyValue.getKey().toLowerCase(), keyValue.getValue().toLowerCase());
             }
 
+            mockHttpServletRequest.setServerPort(serverPort);
             URI uri = URI.create(url);
             if (contentType.toLowerCase().contains("multipart/form-data")) {
-                Object formData = taskMap.get("formData");
-                if (formData instanceof List) {
-                    for (Object formItem : ((List<?>) formData)) {
-                        if (formItem instanceof Map) {
-                            Map<?, ?> formItemValue = (Map<?, ?>) formItem;
-                            if ("text".equalsIgnoreCase(formItemValue.get("type").toString())) {
-                                mockHttpServletRequest.addParameter(formItemValue.get("name").toString(), formItemValue.get("value").toString());
-                            }
-                            if ("file".equalsIgnoreCase(formItemValue.get("type").toString())) {
-                                String valueItem = formItemValue.get("value").toString();
-                                Path filePath = Paths.get(valueItem);
-                                if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
-                                    String name = formItemValue.get("name").toString();
-                                    byte[] value = Files.readAllBytes(filePath);
-                                    VersionInstance.invokeHttpServletRequest_addPart(mockHttpServletRequest, new MockPart(name, value));
-                                    MockMultipartFile mockMultipartFile = new MockMultipartFile(name, filePath.toFile().getName(), probeContentType(filePath), value);
-                                    ((MockMultipartHttpServletRequest) mockHttpServletRequest).addFile(mockMultipartFile);
-                                } else {
-                                    LOGGER.error("invalid file path:" + filePath);
-                                }
-                            }
+                for (FormDataInfo formDataInfo : Optional.ofNullable(requestData.getFormData()).orElse(new ArrayList<>())) {
+                    if ("file".equalsIgnoreCase(formDataInfo.getType())) {
+                        String valueItem = formDataInfo.getValue();
+                        Path filePath = Paths.get(valueItem);
+                        if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
+                            String name = formDataInfo.getName();
+                            byte[] value = Files.readAllBytes(filePath);
+                            VersionInstance.invokeHttpServletRequest_addPart(mockHttpServletRequest, new MockPart(name, value));
+                            MockMultipartFile mockMultipartFile = new MockMultipartFile(name, filePath.toFile().getName(), probeContentType(filePath), value);
+                            ((MockMultipartHttpServletRequest) mockHttpServletRequest).addFile(mockMultipartFile);
+                        } else {
+                            LOGGER.error("invalid file path:" + filePath);
                         }
+                    } else {
+                        mockHttpServletRequest.addParameter(formDataInfo.getName(), formDataInfo.getValue());
                     }
                 }
+
             } else {
-                mockHttpServletRequest.setContent(body.getBytes());
+                if ("application/octet-stream".equals(contentType)) {
+                    Path path = Paths.get(body);
+                    if (!Files.exists(path)) {
+                        throw new IOException("file does not exist" + path);
+                    }
+                    byte[] bytes = StreamUtils.copyToByteArray(Files.newInputStream(path));
+                    mockHttpServletRequest.setContent(bytes);
+
+                } else {
+                    mockHttpServletRequest.setContent(body.getBytes());
+                }
             }
-            if (mockHttpServletRequest.getContentType() == null || "".equalsIgnoreCase(mockHttpServletRequest.getContentType())) {
-                mockHttpServletRequest.setContentType("application/json");
+
+            ControllerEndpoint endpoint = springRequestMappingComponent.getHandlerMethodMaps().get(requestData.getId());
+            if (endpoint == null) {
+                throw new InvokeException("Unable to call:" + requestData.getUrl());
             }
-
-            ControllerEndpoint endpoint = springRequestMappingCollector.getHandlerMethodMaps().get(id);
-            RequestMethodsRequestCondition methodsCondition = endpoint.getRequestMappingInfo().getMethodsCondition();
-            Set<RequestMethod> methods = methodsCondition.getMethods();
-            RequestMethod requestMethod = methods.isEmpty() ? RequestMethod.GET : methods.stream().findFirst().get();
-            mockHttpServletRequest.setMethod(requestMethod.name());
-
-
+            mockHttpServletRequest.setMethod(requestData.getMethod());
             UriComponentsBuilder uriComponentsBuilder = UriComponentsBuilder.fromUri(uri);
             UriComponents uriComponents = uriComponentsBuilder.build();
             mockHttpServletRequest.setProtocol(uri.getScheme());
@@ -229,16 +226,16 @@ public class Dispatcher {
             if (this.parseRequestPath) {
                 VersionInstance.invokeServletRequestPathUtils_parseAndCache(mockHttpServletRequest);
             }
-            HandlerExecutionChain mappedHandler = getHandler(mockHttpServletRequest);
+            mappedHandler = getHandler(mockHttpServletRequest);
 
             if (mappedHandler != null) {
                 HandlerMethod handlerMethod = endpoint.getHandlerMethod();
                 HandlerMethod withResolvedBean = handlerMethod.createWithResolvedBean();
                 Object targetObject = AopTestUtils.getTargetObject(withResolvedBean.getBean());
                 HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
-                Object handler = mappedHandler.getHandler();
+                handler = mappedHandler.getHandler();
 
-                if (!useProxyObject) {
+                if (!requestData.isUseProxyObject()) {
                     if (handler instanceof HandlerMethod) {
                         Field beanField = HandlerMethod.class.getDeclaredField("bean");
                         beanField.setAccessible(true);
@@ -246,23 +243,39 @@ public class Dispatcher {
                     }
                 }
                 HandlerInterceptor[] interceptors = mappedHandler.getInterceptors();
+                interceptorList = interceptors == null ? new ArrayList<>() : Arrays.asList(interceptors);
 
-                List<HandlerInterceptor> interceptorList = interceptors == null ? new ArrayList<>() : Arrays.asList(interceptors);
-
-                if (interceptor) {
+                if (requestData.isUseInterceptor()) {
                     if (!applyPreHandle(interceptorList, handler, mockHttpServletRequest, mockHttpServletResponse)) {
                         return;
                     }
                 }
-                VersionInstance.invokeHandlerAdapter_handle(ha, mockHttpServletRequest, mockHttpServletResponse, handler);
-                applyPostHandle(interceptorList, handler, mockHttpServletRequest, mockHttpServletResponse, new ModelAndView());
+                ModelAndView mv = VersionInstance.invokeHandlerAdapter_handle(ha, mockHttpServletRequest, mockHttpServletResponse, handler);
+                if (requestData.isUseInterceptor()) {
+                    applyPostHandle(interceptorList, handler, mockHttpServletRequest, mockHttpServletResponse, new ModelAndView());
+                }
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            exception = e;
         } finally {
-            responseToPlugin(mockHttpServletResponse, id);
+            responseToPlugin(mockHttpServletResponse, requestData.getId(), exception);
+            if (requestData.isUseInterceptor()) {
+                triggerAfterCompletion(interceptorList, handler, mockHttpServletRequest, mockHttpServletResponse, null);
+            }
         }
     }
+
+    public void invokeController(ControllerRequestData requestData, int serverPort) {
+        System.out.println("invokeController");
+        InvokeReceiveModel invokeReceiveModel = new InvokeReceiveModel();
+        System.out.println("invokeController2");
+        invokeReceiveModel.setRequestId(requestData.getId());
+        System.out.println("invokeController3");
+        PluginCommunication.send(new ReceiveCommunicationPackage(invokeReceiveModel));
+        System.out.println("invokeController3");
+        doInvokeController(requestData, serverPort);
+    }
+
 
     private String probeContentType(Path path) {
         if (Files.isDirectory(path)) return "";
@@ -283,7 +296,11 @@ public class Dispatcher {
         }).collect(Collectors.toList());
     }
 
-    private void responseToPlugin(MockHttpServletResponse response, String requestId) {
+    private void responseToPlugin(MockHttpServletResponse response, String requestId, Exception exception) {
+        if (exception != null) {
+            PluginCommunication.send(new InvokeResponseCommunicationPackage(new ExceptionInvokeResponseModel(requestId, exception)));
+            return;
+        }
         List<InvokeResponseModel.Header> headers = new ArrayList<>();
         for (String headerName : response.getHeaderNames()) {
             for (String value : response.getHeaders(headerName)) {
@@ -326,8 +343,8 @@ public class Dispatcher {
     public void invokeSchedule(Map<String, Object> taskMap) {
         String id = taskMap.getOrDefault("id", "").toString();
         try {
-            if (springRequestMappingCollector.getScheduledEndpointMap().containsKey(id)) {
-                ScheduledEndpoint scheduledEndpoint = springRequestMappingCollector.getScheduledEndpointMap().get(id);
+            if (springRequestMappingComponent.getScheduledEndpointMap().containsKey(id)) {
+                ScheduledEndpoint scheduledEndpoint = springRequestMappingComponent.getScheduledEndpointMap().get(id);
                 LOGGER.info("invoke scheduled {}.{}", scheduledEndpoint.getMethod().getDeclaringClass().getName(), scheduledEndpoint.getMethod().getName());
                 scheduledEndpoint.getMethod().invoke(scheduledEndpoint.getBean());
             }

@@ -15,6 +15,11 @@ public class GsonMapper  implements JsonMapper{
     }
 
     @Override
+    public <T> T toBean(String json, Class<T> tClass) throws JsonException {
+        return  gson.fromJson(json,tClass);
+    }
+
+    @Override
     public String toJSONString(Object o) {
         return gson.toJson(o);
     }

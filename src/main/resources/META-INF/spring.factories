@@ -1,2 +1,2 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
-  com.hxl.plugin.scheduledinvokestarter.EnabledSpringRequestMappingCollector
+  com.hxl.plugin.scheduledinvokestarter.components.ComponentLoader

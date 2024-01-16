@@ -37,24 +37,24 @@ dependencies {
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     compileOnly("jakarta.servlet:jakarta.servlet-api:6.0.0")
-// https://mvnrepository.com/artifact/javax.servlet/javax.servlet-api
     compileOnly("javax.servlet:javax.servlet-api:4.0.1")
     compileOnly ("com.fasterxml.jackson.core:jackson-databind:2.12.5")// 使用你需要的版本
-
+    compileOnly ("org.springframework.cloud:spring-cloud-starter-gateway")
     compileOnly("org.springframework:spring-test:5.3.25"){
         exclude(group="org.springframework",module = "spring-core")
     }
 
-    // https://mvnrepository.com/artifact/com.alibaba/fastjson
     compileOnly("com.alibaba:fastjson:2.0.32")
-// https://mvnrepository.com/artifact/com.alibaba.fastjson2/fastjson2
     compileOnly("com.alibaba.fastjson2:fastjson2:2.0.42")
-    // https://mvnrepository.com/artifact/com.google.code.gson/gson
     compileOnly("com.google.code.gson:gson:2.7")
 
 
 }
-
+dependencyManagement {
+    imports {
+        mavenBom("org.springframework.cloud:spring-cloud-dependencies:2021.0.3")
+    }
+}
 tasks.withType<Test> {
     useJUnitPlatform()
 }

@@ -1,7 +1,8 @@
-package com.hxl.plugin.scheduledinvokestarter;
+package com.hxl.plugin.scheduledinvokestarter.compatible;
 
+import com.hxl.plugin.scheduledinvokestarter.utils.VersionUtils;
 import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockPart;
+import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.servlet.*;
 
@@ -23,6 +24,7 @@ public class VersionInstance {
             throw new RuntimeException(e);
         }
     }
+
     private static Class<?> loadHttpServletRequestClass() {
         try {
             if (VersionUtils.isSpringBoot3Dot0()) {
@@ -47,19 +49,19 @@ public class VersionInstance {
 
     public static boolean invokeHandlerInterceptor_preHandle(HandlerInterceptor instance, Object request, Object response, Object handler) {
         try {
-            MethodType methodType = MethodType.methodType(boolean.class, loadHttpServletRequestClass(),loadHttpServletResponse(),Object.class);
+            MethodType methodType = MethodType.methodType(boolean.class, loadHttpServletRequestClass(), loadHttpServletResponse(), Object.class);
             MethodHandle handle = MethodHandles.lookup().findVirtual(Class.forName("org.springframework.web.servlet.HandlerInterceptor"), "preHandle", methodType);
-            return (boolean) handle.bindTo(instance).invokeWithArguments(request,response,handler);
+            return (boolean) handle.bindTo(instance).invokeWithArguments(request, response, handler);
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static boolean invokeHandlerInterceptor_afterCompletion(HandlerInterceptor instance, Object request, Object response, Object handler, Exception exception) {
+    public static void invokeHandlerInterceptor_afterCompletion(HandlerInterceptor instance, Object request, Object response, Object handler, Exception exception) {
         try {
-            MethodType methodType = MethodType.methodType(boolean.class, loadHttpServletRequestClass(),loadHttpServletResponse(),Object.class,Exception.class);
+            MethodType methodType = MethodType.methodType(void.class, loadHttpServletRequestClass(), loadHttpServletResponse(), Object.class, Exception.class);
             MethodHandle handle = MethodHandles.lookup().findVirtual(Class.forName("org.springframework.web.servlet.HandlerInterceptor"), "afterCompletion", methodType);
-            return (boolean) handle.bindTo(instance).invokeWithArguments(request,response,handler,exception);
+            handle.bindTo(instance).invokeWithArguments(request, response, handler, exception);
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
@@ -67,9 +69,9 @@ public class VersionInstance {
 
     public static void invokeHandlerInterceptor_postHandle(HandlerInterceptor instance, Object request, Object response, Object handler, ModelAndView modelAndView) {
         try {
-            MethodType methodType = MethodType.methodType(void.class, loadHttpServletRequestClass(),loadHttpServletResponse(),Object.class,ModelAndView.class);
+            MethodType methodType = MethodType.methodType(void.class, loadHttpServletRequestClass(), loadHttpServletResponse(), Object.class, ModelAndView.class);
             MethodHandle handle = MethodHandles.lookup().findVirtual(Class.forName("org.springframework.web.servlet.HandlerInterceptor"), "postHandle", methodType);
-            handle.bindTo(instance).invokeWithArguments(request,response,handler,modelAndView);
+            handle.bindTo(instance).invokeWithArguments(request, response, handler, modelAndView);
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
@@ -110,15 +112,15 @@ public class VersionInstance {
 
     public static ModelAndView invokeHandlerAdapter_handle(HandlerAdapter instance, Object request, Object response, Object handler) {
         try {
-            MethodType methodType = MethodType.methodType(ModelAndView.class, loadHttpServletRequestClass(),loadHttpServletResponse(),Object.class);
+            MethodType methodType = MethodType.methodType(ModelAndView.class, loadHttpServletRequestClass(), loadHttpServletResponse(), Object.class);
             MethodHandle handle = MethodHandles.lookup().findVirtual(Class.forName("org.springframework.web.servlet.HandlerAdapter"), "handle", methodType);
-            return (ModelAndView) handle.bindTo(instance).invokeWithArguments(request,response,handler);
+            return (ModelAndView) handle.bindTo(instance).invokeWithArguments(request, response, handler);
         } catch (Throwable e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static void invokeHttpServletRequest_addPart(Object instance,Object arg) {
+    public static void invokeHttpServletRequest_addPart(Object instance, Object arg) {
         try {
 
             MethodType methodType = MethodType.methodType(void.class, loadPartClass());
@@ -130,4 +132,6 @@ public class VersionInstance {
     }
 
 
+    public static void invokeapplyAfterConcurrentHandlingStarted(HandlerExecutionChain mappedHandler, MockHttpServletRequest mockHttpServletRequest, MockHttpServletResponse mockHttpServletResponse) {
+    }
 }
