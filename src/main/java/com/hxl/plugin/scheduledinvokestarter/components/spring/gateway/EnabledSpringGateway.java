@@ -1,26 +1,26 @@
 package com.hxl.plugin.scheduledinvokestarter.components.spring.gateway;
 
-import com.hxl.plugin.scheduledinvokestarter.MockClassLoader;
 import com.hxl.plugin.scheduledinvokestarter.components.ComponentDataHandler;
 import com.hxl.plugin.scheduledinvokestarter.components.ComponentSupport;
 import com.hxl.plugin.scheduledinvokestarter.components.SpringBootStartInfo;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnWebApplication;
+import org.springframework.boot.web.reactive.context.ReactiveWebApplicationContext;
 import org.springframework.context.ApplicationContext;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-
-import java.net.URL;
 
 public class EnabledSpringGateway implements ComponentSupport {
     @Override
     public boolean canSupport(ApplicationContext applicationContext) {
-        return false;
+        try {
+            Class.forName("org.springframework.boot.web.reactive.context.ReactiveWebApplicationContext");
+            return applicationContext instanceof ReactiveWebApplicationContext;
+        } catch (ClassNotFoundException e) {
+            return false;
+        }
     }
 
     @Override
     public ComponentDataHandler start(ApplicationContext applicationContext, SpringBootStartInfo springBootStartInfo) {
-        return null;
+        return (new SpringGatewayComponent(applicationContext, springBootStartInfo));
+
     }
     //    @Bean
 //    @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.REACTIVE)

@@ -3,9 +3,10 @@ package com.hxl.plugin.scheduledinvokestarter.components.spring.controller;
 import com.hxl.plugin.scheduledinvokestarter.*;
 import com.hxl.plugin.scheduledinvokestarter.compatible.VersionInstance;
 import com.hxl.plugin.scheduledinvokestarter.model.InvokeReceiveModel;
-import com.hxl.plugin.scheduledinvokestarter.model.pack.InvokeResponseCommunicationPackage;
 import com.hxl.plugin.scheduledinvokestarter.model.InvokeResponseModel;
+import com.hxl.plugin.scheduledinvokestarter.model.pack.InvokeResponseCommunicationPackage;
 import com.hxl.plugin.scheduledinvokestarter.model.pack.ReceiveCommunicationPackage;
+import com.hxl.plugin.scheduledinvokestarter.utils.AopUtilsAdapter;
 import com.hxl.plugin.scheduledinvokestarter.utils.VersionUtils;
 import com.hxl.plugin.scheduledinvokestarter.utils.exception.InvokeException;
 import org.slf4j.Logger;
@@ -16,7 +17,6 @@ import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.core.env.Environment;
 import org.springframework.lang.Nullable;
 import org.springframework.mock.web.*;
-import org.springframework.test.util.AopTestUtils;
 import org.springframework.util.MultiValueMap;
 import org.springframework.util.StreamUtils;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -213,7 +213,7 @@ public class Dispatcher {
             }
             if (mockHttpServletRequest.getContentType().contains("www-form-urlencoded")) {
                 UriComponents components = UriComponentsBuilder.newInstance()
-                        .query(mockHttpServletRequest.getContentAsString())
+                        .query(body)
                         .build();
                 MultiValueMap<String, String> bodyQueryParams = components.getQueryParams();
                 for (String queryKey : bodyQueryParams.keySet()) {
@@ -231,7 +231,7 @@ public class Dispatcher {
             if (mappedHandler != null) {
                 HandlerMethod handlerMethod = endpoint.getHandlerMethod();
                 HandlerMethod withResolvedBean = handlerMethod.createWithResolvedBean();
-                Object targetObject = AopTestUtils.getTargetObject(withResolvedBean.getBean());
+                Object targetObject = AopUtilsAdapter.getTargetObject(withResolvedBean.getBean());
                 HandlerAdapter ha = getHandlerAdapter(mappedHandler.getHandler());
                 handler = mappedHandler.getHandler();
 
@@ -266,13 +266,9 @@ public class Dispatcher {
     }
 
     public void invokeController(ControllerRequestData requestData, int serverPort) {
-        System.out.println("invokeController");
         InvokeReceiveModel invokeReceiveModel = new InvokeReceiveModel();
-        System.out.println("invokeController2");
         invokeReceiveModel.setRequestId(requestData.getId());
-        System.out.println("invokeController3");
         PluginCommunication.send(new ReceiveCommunicationPackage(invokeReceiveModel));
-        System.out.println("invokeController3");
         doInvokeController(requestData, serverPort);
     }
 

@@ -58,7 +58,6 @@ public class ComponentLoader implements CommandLineRunner, ApplicationContextAwa
                 componentDataHandlers.add(componentLoader.start(this.applicationContext, springBootStartInfo));
             }
         }
-        System.out.println(componentDataHandlers.size());
         for (ComponentDataHandler componentDataHandler : componentDataHandlers) {
             if (componentDataHandler != null) {
                 componentDataHandler.publishData(applicationContext);

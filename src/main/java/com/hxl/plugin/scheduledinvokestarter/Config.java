@@ -9,6 +9,7 @@ public class Config {
     private static final Path CONFIG_WORK_HOME = Paths.get(System.getProperty("user.home"), ".config", "spring-invoke", "invoke", "lib");
     public static final String SPRING_TEST_5="spring-test-5.3.30.jar";
     public static final String SPRING_TEST_6="spring-test-6.0.13.jar";
+    public static final String SPRING_TEST_4="spring-test-4.0.0.jar";
     public static String getLibPath() {
         if (!CONFIG_WORK_HOME.toFile().exists()) {
             try {

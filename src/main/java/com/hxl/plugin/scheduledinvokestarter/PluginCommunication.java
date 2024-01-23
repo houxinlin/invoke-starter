@@ -102,7 +102,6 @@ public class PluginCommunication implements Runnable {
 
     public static void send(CommunicationPackage communicationPackage) {
         String port = System.getProperty("hxl.spring.invoke.port");
-        System.out.println(port +"send");
         if (port == null) {
             return;
         }
