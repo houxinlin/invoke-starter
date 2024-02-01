@@ -6,6 +6,7 @@ import com.hxl.plugin.scheduledinvokestarter.components.spring.gateway.EnabledSp
 import com.hxl.plugin.scheduledinvokestarter.utils.SocketUtils;
 import com.hxl.plugin.scheduledinvokestarter.utils.SystemUtils;
 import org.springframework.beans.BeansException;
+import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -16,7 +17,7 @@ import java.util.List;
 /**
  * 组件数据加载器
  */
-public class ComponentLoader implements CommandLineRunner, ApplicationContextAware,
+public class ComponentLoader implements CommandLineRunner, ApplicationContextAware, BeanPostProcessor,
         PluginCommunication.MessageCallback {
     private List<ComponentSupport> componentLoaders = new ArrayList<>();
     private List<ComponentDataHandler> componentDataHandlers = new ArrayList<>();
@@ -45,6 +46,11 @@ public class ComponentLoader implements CommandLineRunner, ApplicationContextAwa
                 componentDataHandler.messageData(msg);
             }
         }
+    }
+
+    @Override
+    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
+        return BeanPostProcessor.super.postProcessBeforeInitialization(bean, beanName);
     }
 
     @Override
