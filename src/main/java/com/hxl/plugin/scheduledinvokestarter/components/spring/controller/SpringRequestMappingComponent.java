@@ -11,6 +11,7 @@ import com.hxl.plugin.scheduledinvokestarter.model.pack.ClearCommunicationPackag
 import com.hxl.plugin.scheduledinvokestarter.model.pack.ProjectStartupCommunicationPackage;
 import com.hxl.plugin.scheduledinvokestarter.model.pack.RequestMappingCommunicationPackage;
 import com.hxl.plugin.scheduledinvokestarter.model.pack.ScheduledCommunicationPackage;
+import com.hxl.plugin.scheduledinvokestarter.utils.AnnotationUtilsAdapter;
 import com.hxl.plugin.scheduledinvokestarter.utils.ApplicationHome;
 import com.hxl.plugin.scheduledinvokestarter.utils.SystemUtils;
 import com.hxl.plugin.scheduledinvokestarter.utils.VersionUtils;
@@ -221,7 +222,7 @@ public class SpringRequestMappingComponent implements ComponentDataHandler, Bean
     public Object postProcessBeforeInitialization(Object bean, String beanName) {
         try {
             Class<?> targetClass = AopProxyUtils.ultimateTargetClass(bean);
-            if (AnnotationUtils.isCandidateClass(targetClass, Arrays.asList(Scheduled.class, Schedules.class))) {
+            if (AnnotationUtilsAdapter.isCandidateClass(targetClass, Arrays.asList(Scheduled.class, Schedules.class))) {
                 Map<Method, Set<Scheduled>> annotatedMethods = MethodIntrospector.selectMethods(targetClass,
                         (MethodIntrospector.MetadataLookup<Set<Scheduled>>) method -> {
                             Set<Scheduled> scheduledAnnotations = AnnotatedElementUtils.getMergedRepeatableAnnotations(
