@@ -53,6 +53,12 @@ public class PluginCommunication implements Runnable {
     }
 
     private byte[] getByteAndClose(SelectionKey key) {
+        SocketChannel channel = (SocketChannel) key.channel();
+        try {
+            channel.close();
+        } catch (IOException e) {
+
+        }
         key.cancel();
         if (key.attachment() == null) return null;
         return ((ByteArrayOutputStream) key.attachment()).toByteArray();

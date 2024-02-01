@@ -124,7 +124,7 @@ public class VersionInstance {
         try {
 
             MethodType methodType = MethodType.methodType(void.class, loadPartClass());
-            MethodHandle addPartHandle = MethodHandles.lookup().findVirtual(Class.forName("org.springframework.mock.web.MockHttpServletRequest"), "addPart", methodType);
+            MethodHandle addPartHandle = MethodHandles.lookup().findVirtual(instance.getClass(), "addPart", methodType);
             addPartHandle.bindTo(instance).invokeWithArguments(arg);
         } catch (Throwable e) {
             throw new RuntimeException(e);

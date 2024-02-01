@@ -35,6 +35,7 @@ public class InvokeResponseModel extends Model {
     private List<Header> header;
     private byte[] data;
     private String id;
+    private int code=-1;
 
     public String headerToString() {
         StringBuilder headerStringBuffer = new StringBuilder();
@@ -43,6 +44,14 @@ public class InvokeResponseModel extends Model {
             headerStringBuffer.append("\n");
         }
         return headerStringBuffer.toString();
+    }
+
+    public int getCode() {
+        return code;
+    }
+
+    public void setCode(int code) {
+        this.code = code;
     }
 
     public List<Header> getHeader() {
