@@ -17,17 +17,19 @@ public class JsonMapperFactory {
 
     public static JsonMapper getJsonMapper() {
         try {
-            Class.forName("com.google.gson.Gson");
-            return new GsonMapper();
-        } catch (ClassNotFoundException ignored) {
-
-        }
-        try {
             Class.forName("com.fasterxml.jackson.databind.ObjectMapper");
             return new ObjectMapperJsonMapper();
         } catch (ClassNotFoundException ignored) {
 
         }
+
+        try {
+            Class.forName("com.google.gson.Gson");
+            return new GsonMapper();
+        } catch (ClassNotFoundException ignored) {
+
+        }
+
         try {
             Class.forName("com.alibaba.fastjson2.JSON");
             return new AlibabaFastJson2Mapper();

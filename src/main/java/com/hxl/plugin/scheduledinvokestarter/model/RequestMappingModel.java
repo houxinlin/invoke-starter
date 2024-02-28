@@ -4,10 +4,11 @@ import com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.C
 
 import java.util.Set;
 
-public class RequestMappingModel  extends Model{
+public class RequestMappingModel extends Model {
     private int pluginPort;
-    private Set<Controller> controllers;
+    private Controller controller;
     private int serverPort;
+    private int total;
 
     public int getServerPort() {
         return serverPort;
@@ -24,13 +25,20 @@ public class RequestMappingModel  extends Model{
     public void setPluginPort(int pluginPort) {
         this.pluginPort = pluginPort;
     }
-    public Set<Controller> getControllers() {
-        return controllers;
+
+    public Controller getController() {
+        return controller;
     }
 
-    public void setControllers(Set<Controller> controllers) {
-        this.controllers = controllers;
+    public void setController(Controller controller) {
+        this.controller = controller;
     }
 
+    public int getTotal() {
+        return total;
+    }
 
+    public void setTotal(int total) {
+        this.total = total;
+    }
 }

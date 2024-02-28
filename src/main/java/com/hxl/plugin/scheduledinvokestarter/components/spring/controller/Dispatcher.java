@@ -257,7 +257,7 @@ public class Dispatcher {
                 }
             }
         } catch (Exception e) {
-            if (SystemUtils.isDebug()){
+            if (SystemUtils.isDebug()) {
                 e.printStackTrace();
             }
             exception = e;
@@ -307,8 +307,10 @@ public class Dispatcher {
                 headers.add(new InvokeResponseModel.Header(headerName, value));
             }
         }
+        byte[] contentAsByteArray = response.getContentAsByteArray();
+        String body = contentAsByteArray != null ? Base64.getEncoder().encodeToString(contentAsByteArray) : "";
         InvokeResponseModel invokeResponseModel = InvokeResponseModel.InvokeResponseModelBuilder.anInvokeResponseModel()
-                .withData(response.getContentAsByteArray())
+                .withData(body)
                 .withId(requestId)
                 .withHeader(headers)
                 .build();

@@ -16,11 +16,9 @@ import com.hxl.plugin.scheduledinvokestarter.utils.ApplicationHome;
 import com.hxl.plugin.scheduledinvokestarter.utils.SystemUtils;
 import com.hxl.plugin.scheduledinvokestarter.utils.VersionUtils;
 import org.springframework.aop.framework.AopProxyUtils;
-import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.MethodIntrospector;
 import org.springframework.core.annotation.AnnotatedElementUtils;
-import org.springframework.core.annotation.AnnotationUtils;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.annotation.ScheduledAnnotationBeanPostProcessor;
 import org.springframework.scheduling.annotation.Schedules;
@@ -46,10 +44,11 @@ import static com.hxl.plugin.scheduledinvokestarter.utils.SpringUtils.getContext
 import static com.hxl.plugin.scheduledinvokestarter.utils.SpringUtils.getServerPort;
 
 
-public class SpringRequestMappingComponent implements ComponentDataHandler, BeanPostProcessor {
-
+public class SpringRequestMappingComponent implements ComponentDataHandler {
+    private static final ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
+            Runtime.getRuntime().availableProcessors(), 1, TimeUnit.SECONDS, new LinkedBlockingQueue<>());
     private static final String EMPTY_STRING = "";
-    private ApplicationContext applicationContext;
+    private final ApplicationContext applicationContext;
     private final Map<String, ControllerEndpoint> handlerMethodMaps = new HashMap<>();
     private final Map<String, ScheduledEndpoint> scheduledEndpointMap = new HashMap<>();
     private final List<SpringScheduledSpringInvokeEndpoint> scheduledInvokeBeans = new ArrayList<>();
@@ -64,8 +63,7 @@ public class SpringRequestMappingComponent implements ComponentDataHandler, Bean
     }
 
     public static JsonMapper jsonMapper;
-    private final ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(Runtime.getRuntime().availableProcessors(),
-            Runtime.getRuntime().availableProcessors(), 1, TimeUnit.MINUTES, new LinkedBlockingQueue<>());
+    private boolean refreshing = false;
 
     public SpringRequestMappingComponent(ApplicationContext applicationContext,
                                          SpringBootStartInfo springBootStartInfo) {
@@ -218,8 +216,7 @@ public class SpringRequestMappingComponent implements ComponentDataHandler, Bean
         return null;
     }
 
-    @Override
-    public Object postProcessBeforeInitialization(Object bean, String beanName) {
+    public void postProcessBeforeInitialization(Object bean, String beanName) {
         try {
             Class<?> targetClass = AopProxyUtils.ultimateTargetClass(bean);
             if (AnnotationUtilsAdapter.isCandidateClass(targetClass, Arrays.asList(Scheduled.class, Schedules.class))) {
@@ -246,54 +243,44 @@ public class SpringRequestMappingComponent implements ComponentDataHandler, Bean
             }
         } catch (Exception ignored) {
         }
-        return BeanPostProcessor.super.postProcessBeforeInitialization(bean, beanName);
     }
 
-    private void refresh() {
+    private void doRefresh() {
         try {
             Set<com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller> controllers = collectorRequestMapping();
             if (SystemUtils.isDebug()) {
                 System.out.println(jsonMapper.toJSONString(controllers));
             }
-            PluginCommunication.send(new ClearCommunicationPackage(new ClearModel()));
+            PluginCommunication.send(new ClearCommunicationPackage(new ClearModel()));//插件目前没有响应
 
-            RequestMappingModel requestMappingModel = new RequestMappingModel();
-            requestMappingModel.setControllers(controllers);
-            requestMappingModel.setPluginPort(springBootStartInfo.getAvailableTcpPort());
-            requestMappingModel.setServerPort(getServerPort(applicationContext));
-            RequestMappingCommunicationPackage requestMappingCommunicationPackage = new RequestMappingCommunicationPackage(requestMappingModel);
-            PluginCommunication.send(requestMappingCommunicationPackage);
+            //已进度条得方法发送到插件
+            for (Controller controller : controllers) {
+                RequestMappingModel requestMappingModel = new RequestMappingModel();
+                requestMappingModel.setController(controller);
+                requestMappingModel.setTotal(controllers.size());
+                requestMappingModel.setPluginPort(springBootStartInfo.getAvailableTcpPort());
+                requestMappingModel.setServerPort(getServerPort(applicationContext));
+                RequestMappingCommunicationPackage requestMappingCommunicationPackage = new RequestMappingCommunicationPackage(requestMappingModel);
+                PluginCommunication.send(requestMappingCommunicationPackage);
+            }
 
             for (String beanDefinitionName : applicationContext.getBeanDefinitionNames()) {
                 postProcessBeforeInitialization(applicationContext.getBean(beanDefinitionName), beanDefinitionName);
             }
-//            ScheduledAnnotationBeanPostProcessor scheduledAnnotationBeanPostProcessorBean = getScheduledAnnotationBeanPostProcessorBean();
-//            if (scheduledAnnotationBeanPostProcessorBean != null) {
-//                Method getScheduledTasks = ReflectionUtils.findMethod(ScheduledAnnotationBeanPostProcessor.class, "getScheduledTasks");
-//                if (getScheduledTasks != null) {
-//                    Set<ScheduledTask> scheduledTasks = scheduledAnnotationBeanPostProcessorBean.getScheduledTasks();
-//                    for (ScheduledTask scheduledTask : scheduledTasks) {
-//                        Runnable runnable = scheduledTask.getTask().getRunnable();
-//                        if (runnable instanceof ScheduledMethodRunnable) {
-//                            Method method = ((ScheduledMethodRunnable) runnable).getMethod();
-//                            SpringScheduledSpringInvokeEndpoint scheduledInvokeBean = SpringScheduledSpringInvokeEndpoint.ScheduledInvokeBeanBuilder.aScheduledInvokeBean()
-//                                    .withClassName(method.getDeclaringClass().getName())
-//                                    .withMethodName(method.getName())
-//                                    .build();
-//                            scheduledInvokeBean.setSpringInnerId(generatorId(method));
-//                            ScheduledEndpoint scheduledEndpoint = new ScheduledEndpoint(method, ((ScheduledMethodRunnable) runnable).getTarget());
-//                            scheduledEndpointMap.put(scheduledInvokeBean.getSpringInnerId(), scheduledEndpoint);
-//                            scheduledInvokeBeans.add(scheduledInvokeBean);
-//                        }
-//                    }
-//                }
-//            }
             PluginCommunication.send(new ScheduledCommunicationPackage(new ScheduledModel(scheduledInvokeBeans, this.springBootStartInfo.getAvailableTcpPort())));
         } catch (Exception e) {
             if (SystemUtils.isDebug()) {
                 e.printStackTrace();
             }
+        } finally {
+            refreshing = false;
         }
+    }
+
+    private void refresh() {
+        if (refreshing) return;
+        refreshing = true;
+        threadPoolExecutor.submit(this::doRefresh);
     }
 
     private String generatorId(Controller controller) {

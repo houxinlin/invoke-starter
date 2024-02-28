@@ -6,7 +6,6 @@ import com.hxl.plugin.scheduledinvokestarter.components.spring.gateway.EnabledSp
 import com.hxl.plugin.scheduledinvokestarter.utils.SocketUtils;
 import com.hxl.plugin.scheduledinvokestarter.utils.SystemUtils;
 import org.springframework.beans.BeansException;
-import org.springframework.beans.factory.config.BeanPostProcessor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
@@ -17,7 +16,7 @@ import java.util.List;
 /**
  * 组件数据加载器
  */
-public class ComponentLoader implements CommandLineRunner, ApplicationContextAware, BeanPostProcessor,
+public class ComponentLoader implements CommandLineRunner, ApplicationContextAware,
         PluginCommunication.MessageCallback {
     private List<ComponentSupport> componentLoaders = new ArrayList<>();
     private List<ComponentDataHandler> componentDataHandlers = new ArrayList<>();
@@ -49,12 +48,10 @@ public class ComponentLoader implements CommandLineRunner, ApplicationContextAwa
     }
 
     @Override
-    public Object postProcessBeforeInitialization(Object bean, String beanName) throws BeansException {
-        return BeanPostProcessor.super.postProcessBeforeInitialization(bean, beanName);
-    }
-
-    @Override
     public void run(String... args) throws Exception {
+        if (SystemUtils.isDebug()) {
+            System.out.println(ComponentLoader.class.getName() + " run:");
+        }
         availableTcpPort = SocketUtils.findAvailableTcpPort();
         pluginCommunication.startServer(availableTcpPort);
         SpringBootStartInfo springBootStartInfo = new SpringBootStartInfo();
@@ -66,7 +63,13 @@ public class ComponentLoader implements CommandLineRunner, ApplicationContextAwa
         }
         for (ComponentDataHandler componentDataHandler : componentDataHandlers) {
             if (componentDataHandler != null) {
-                componentDataHandler.publishData(applicationContext);
+                try {
+                    componentDataHandler.publishData(applicationContext);
+                } catch (Exception e) {
+                    if (SystemUtils.isDebug()) {
+                        e.printStackTrace();
+                    }
+                }
             }
         }
     }

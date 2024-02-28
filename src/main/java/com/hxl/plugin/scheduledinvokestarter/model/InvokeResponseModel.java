@@ -33,9 +33,9 @@ public class InvokeResponseModel extends Model {
     }
 
     private List<Header> header;
-    private byte[] data;
+    private String baseBodyData;
     private String id;
-    private int code=-1;
+    private int code = -1;
 
     public String headerToString() {
         StringBuilder headerStringBuffer = new StringBuilder();
@@ -62,12 +62,12 @@ public class InvokeResponseModel extends Model {
         this.header = header;
     }
 
-    public byte[] getData() {
-        return data;
+    public String getBaseBodyData() {
+        return baseBodyData;
     }
 
-    public void setData(byte[] data) {
-        this.data = data;
+    public void setBaseBodyData(String baseBodyData) {
+        this.baseBodyData = baseBodyData;
     }
 
     public String getId() {
@@ -80,7 +80,7 @@ public class InvokeResponseModel extends Model {
 
     public static final class InvokeResponseModelBuilder {
         private List<Header> header;
-        private byte[] data;
+        private String baseBodyData;
         private String id;
         private String type;
 
@@ -96,8 +96,8 @@ public class InvokeResponseModel extends Model {
             return this;
         }
 
-        public InvokeResponseModelBuilder withData(byte[] data) {
-            this.data = data;
+        public InvokeResponseModelBuilder withData(String body) {
+            this.baseBodyData = body;
             return this;
         }
 
@@ -114,7 +114,7 @@ public class InvokeResponseModel extends Model {
         public InvokeResponseModel build() {
             InvokeResponseModel invokeResponseModel = new InvokeResponseModel();
             invokeResponseModel.setHeader(header);
-            invokeResponseModel.setData(data);
+            invokeResponseModel.setBaseBodyData(baseBodyData);
             invokeResponseModel.setId(id);
             invokeResponseModel.setType(type);
             return invokeResponseModel;
