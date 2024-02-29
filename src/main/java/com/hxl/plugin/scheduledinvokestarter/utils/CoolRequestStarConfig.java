@@ -1,6 +1,6 @@
 package com.hxl.plugin.scheduledinvokestarter.utils;
 
-public class SystemUtils {
+public class CoolRequestStarConfig {
     public static boolean isDebug() {
         return System.getProperty("hxl.cool.request.debug", "false").equals("true");
     }

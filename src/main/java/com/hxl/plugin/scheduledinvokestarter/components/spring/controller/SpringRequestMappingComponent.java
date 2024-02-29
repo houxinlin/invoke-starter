@@ -13,7 +13,7 @@ import com.hxl.plugin.scheduledinvokestarter.model.pack.RequestMappingCommunicat
 import com.hxl.plugin.scheduledinvokestarter.model.pack.ScheduledCommunicationPackage;
 import com.hxl.plugin.scheduledinvokestarter.utils.AnnotationUtilsAdapter;
 import com.hxl.plugin.scheduledinvokestarter.utils.ApplicationHome;
-import com.hxl.plugin.scheduledinvokestarter.utils.SystemUtils;
+import com.hxl.plugin.scheduledinvokestarter.utils.CoolRequestStarConfig;
 import com.hxl.plugin.scheduledinvokestarter.utils.VersionUtils;
 import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.context.ApplicationContext;
@@ -248,7 +248,7 @@ public class SpringRequestMappingComponent implements ComponentDataHandler {
     private void doRefresh() {
         try {
             Set<com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller> controllers = collectorRequestMapping();
-            if (SystemUtils.isDebug()) {
+            if (CoolRequestStarConfig.isDebug()) {
                 System.out.println(jsonMapper.toJSONString(controllers));
             }
             PluginCommunication.send(new ClearCommunicationPackage(new ClearModel()));//插件目前没有响应
@@ -269,7 +269,7 @@ public class SpringRequestMappingComponent implements ComponentDataHandler {
             }
             PluginCommunication.send(new ScheduledCommunicationPackage(new ScheduledModel(scheduledInvokeBeans, this.springBootStartInfo.getAvailableTcpPort())));
         } catch (Exception e) {
-            if (SystemUtils.isDebug()) {
+            if (CoolRequestStarConfig.isDebug()) {
                 e.printStackTrace();
             }
         } finally {
@@ -286,7 +286,7 @@ public class SpringRequestMappingComponent implements ComponentDataHandler {
     private String generatorId(Controller controller) {
         String project = new ApplicationHome().getDir().toString();
         String id = new StringBuilder()
-                .append(SystemUtils.getProjectName(project))
+                .append(CoolRequestStarConfig.getProjectName(project))
                 .append(controller.getServerPort())
                 .append(controller.getSimpleClassName())
                 .append(controller.getMethodName())
@@ -301,7 +301,7 @@ public class SpringRequestMappingComponent implements ComponentDataHandler {
         String name = method.getName();
         String className = method.getDeclaringClass().getSimpleName();
         String project = new ApplicationHome().getDir().toString();
-        return DigestUtils.md5DigestAsHex(("scheduled" + name + className + SystemUtils.getProjectName(project) + method.getDeclaringClass()).getBytes());
+        return DigestUtils.md5DigestAsHex(("scheduled" + name + className + CoolRequestStarConfig.getProjectName(project) + method.getDeclaringClass()).getBytes());
     }
 
     private String generatorId() {

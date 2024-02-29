@@ -7,7 +7,7 @@ import com.hxl.plugin.scheduledinvokestarter.model.InvokeResponseModel;
 import com.hxl.plugin.scheduledinvokestarter.model.pack.InvokeResponseCommunicationPackage;
 import com.hxl.plugin.scheduledinvokestarter.model.pack.ReceiveCommunicationPackage;
 import com.hxl.plugin.scheduledinvokestarter.utils.AopUtilsAdapter;
-import com.hxl.plugin.scheduledinvokestarter.utils.SystemUtils;
+import com.hxl.plugin.scheduledinvokestarter.utils.CoolRequestStarConfig;
 import com.hxl.plugin.scheduledinvokestarter.utils.VersionUtils;
 import com.hxl.plugin.scheduledinvokestarter.utils.exception.InvokeException;
 import org.slf4j.Logger;
@@ -257,7 +257,7 @@ public class Dispatcher {
                 }
             }
         } catch (Exception e) {
-            if (SystemUtils.isDebug()) {
+            if (CoolRequestStarConfig.isDebug()) {
                 e.printStackTrace();
             }
             exception = e;

@@ -3,6 +3,7 @@ package com.hxl.plugin.scheduledinvokestarter.components.spring.gateway;
 import com.hxl.plugin.scheduledinvokestarter.components.ComponentDataHandler;
 import com.hxl.plugin.scheduledinvokestarter.components.ComponentSupport;
 import com.hxl.plugin.scheduledinvokestarter.components.SpringBootStartInfo;
+import com.hxl.plugin.scheduledinvokestarter.json.JsonMapper;
 import org.springframework.context.ApplicationContext;
 
 import java.lang.invoke.MethodHandle;
@@ -24,7 +25,7 @@ public class EnabledSpringGateway implements ComponentSupport {
     }
 
     @Override
-    public ComponentDataHandler start(ApplicationContext applicationContext, SpringBootStartInfo springBootStartInfo) {
+    public ComponentDataHandler start(ApplicationContext applicationContext, SpringBootStartInfo springBootStartInfo, JsonMapper jsonMapper) {
         return (new SpringGatewayComponent(applicationContext, springBootStartInfo));
 
     }

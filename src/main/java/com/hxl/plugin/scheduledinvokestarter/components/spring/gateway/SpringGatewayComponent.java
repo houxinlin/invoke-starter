@@ -7,7 +7,7 @@ import com.hxl.plugin.scheduledinvokestarter.components.SpringBootStartInfo;
 import com.hxl.plugin.scheduledinvokestarter.model.GatewayModel;
 import com.hxl.plugin.scheduledinvokestarter.model.pack.SpringGatewayCommunicationPackage;
 import com.hxl.plugin.scheduledinvokestarter.utils.SpringUtils;
-import com.hxl.plugin.scheduledinvokestarter.utils.SystemUtils;
+import com.hxl.plugin.scheduledinvokestarter.utils.CoolRequestStarConfig;
 import org.springframework.boot.system.ApplicationHome;
 import org.springframework.cloud.gateway.handler.AsyncPredicate;
 import org.springframework.cloud.gateway.route.Route;
@@ -79,7 +79,7 @@ public class SpringGatewayComponent implements ComponentDataHandler {
 
     private String getId(int port, String routeId) {
         String project = new ApplicationHome().getDir().toString();
-        return DigestUtils.md5DigestAsHex(("spring_gateway" + routeId + SystemUtils.getProjectName(project) + port).getBytes());
+        return DigestUtils.md5DigestAsHex(("spring_gateway" + routeId + CoolRequestStarConfig.getProjectName(project) + port).getBytes());
     }
 
     private String getPredicate(String src) {

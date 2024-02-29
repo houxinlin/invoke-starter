@@ -3,7 +3,7 @@ package com.hxl.plugin.scheduledinvokestarter;
 
 import com.hxl.plugin.scheduledinvokestarter.json.JsonMapper;
 import com.hxl.plugin.scheduledinvokestarter.model.pack.CommunicationPackage;
-import com.hxl.plugin.scheduledinvokestarter.utils.SystemUtils;
+import com.hxl.plugin.scheduledinvokestarter.utils.CoolRequestStarConfig;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,6 +17,7 @@ import java.nio.channels.Selector;
 import java.nio.channels.ServerSocketChannel;
 import java.nio.channels.SocketChannel;
 import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.util.Iterator;
 import java.util.Set;
 
@@ -79,7 +80,7 @@ public class PluginCommunication implements Runnable {
     }
 
     private void invoke(byte[] data) {
-        if (messageCallback != null) messageCallback.pluginMessage(new String(data));
+        if (messageCallback != null) messageCallback.pluginMessage(new String(data, StandardCharsets.UTF_8));
     }
 
     @Override
@@ -113,7 +114,7 @@ public class PluginCommunication implements Runnable {
         }
         try (SocketChannel pluginServer = SocketChannel.open(new InetSocketAddress("localhost", Integer.parseInt(port)))) {
             String json = communicationPackage.toJson();
-            if (SystemUtils.isDebug()) System.out.println(json);
+            if (CoolRequestStarConfig.isDebug()) System.out.println(json);
             pluginServer.write(Charset.defaultCharset().encode(json));
         } catch (Exception e) {
             e.printStackTrace();

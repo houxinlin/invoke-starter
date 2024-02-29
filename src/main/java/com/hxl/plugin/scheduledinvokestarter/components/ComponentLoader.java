@@ -3,8 +3,10 @@ package com.hxl.plugin.scheduledinvokestarter.components;
 import com.hxl.plugin.scheduledinvokestarter.PluginCommunication;
 import com.hxl.plugin.scheduledinvokestarter.components.spring.controller.EnabledSpringMvcRequestMapping;
 import com.hxl.plugin.scheduledinvokestarter.components.spring.gateway.EnabledSpringGateway;
+import com.hxl.plugin.scheduledinvokestarter.components.xxljob.XxlJobComponentSupport;
+import com.hxl.plugin.scheduledinvokestarter.json.JsonMapperFactory;
 import com.hxl.plugin.scheduledinvokestarter.utils.SocketUtils;
-import com.hxl.plugin.scheduledinvokestarter.utils.SystemUtils;
+import com.hxl.plugin.scheduledinvokestarter.utils.CoolRequestStarConfig;
 import org.springframework.beans.BeansException;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.ApplicationContext;
@@ -28,6 +30,7 @@ public class ComponentLoader implements CommandLineRunner, ApplicationContextAwa
     public ComponentLoader() {
         componentLoaders.add(new EnabledSpringMvcRequestMapping());
         componentLoaders.add(new EnabledSpringGateway());
+        componentLoaders.add(new XxlJobComponentSupport());
     }
 
     @Override
@@ -37,7 +40,7 @@ public class ComponentLoader implements CommandLineRunner, ApplicationContextAwa
 
     @Override
     public void pluginMessage(String msg) {
-        if (SystemUtils.isDebug()) {
+        if (CoolRequestStarConfig.isDebug()) {
             System.out.println(msg);
         }
         for (ComponentDataHandler componentDataHandler : componentDataHandlers) {
@@ -49,24 +52,29 @@ public class ComponentLoader implements CommandLineRunner, ApplicationContextAwa
 
     @Override
     public void run(String... args) throws Exception {
-        if (SystemUtils.isDebug()) {
+        if (CoolRequestStarConfig.isDebug()) {
             System.out.println(ComponentLoader.class.getName() + " run:");
         }
+        String json = applicationContext.getEnvironment().getProperty("cool.request.plugin.json");
+
         availableTcpPort = SocketUtils.findAvailableTcpPort();
         pluginCommunication.startServer(availableTcpPort);
         SpringBootStartInfo springBootStartInfo = new SpringBootStartInfo();
         springBootStartInfo.setAvailableTcpPort(availableTcpPort);
         for (ComponentSupport componentLoader : componentLoaders) {
             if (componentLoader.canSupport(this.applicationContext)) {
-                componentDataHandlers.add(componentLoader.start(this.applicationContext, springBootStartInfo));
+                componentDataHandlers.add(componentLoader.start(this.applicationContext, springBootStartInfo,JsonMapperFactory.getJsonMapper(json)));
             }
         }
         for (ComponentDataHandler componentDataHandler : componentDataHandlers) {
             if (componentDataHandler != null) {
                 try {
+                    if (CoolRequestStarConfig.isDebug()){
+                        System.out.println(componentDataHandler);
+                    }
                     componentDataHandler.publishData(applicationContext);
                 } catch (Exception e) {
-                    if (SystemUtils.isDebug()) {
+                    if (CoolRequestStarConfig.isDebug()) {
                         e.printStackTrace();
                     }
                 }
