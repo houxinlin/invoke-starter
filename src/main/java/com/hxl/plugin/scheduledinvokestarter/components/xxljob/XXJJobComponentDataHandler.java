@@ -11,6 +11,7 @@ import com.hxl.plugin.scheduledinvokestarter.model.pack.XXLJobPackage;
 import com.hxl.plugin.scheduledinvokestarter.utils.AnnotationUtilsAdapter;
 import com.hxl.plugin.scheduledinvokestarter.utils.ApplicationHome;
 import com.hxl.plugin.scheduledinvokestarter.utils.CoolRequestStarConfig;
+import com.xxl.job.core.context.XxlJobContext;
 import com.xxl.job.core.handler.annotation.XxlJob;
 import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.context.ApplicationContext;
@@ -30,15 +31,21 @@ public class XXJJobComponentDataHandler implements ComponentDataHandler {
     private final List<XxlJobInvokeEndpoint> xxlJobInvokeBeans = new ArrayList<>();
 
     private SpringBootStartInfo springBootStartInfo;
+    private ApplicationContext applicationContext;
 
     public XXJJobComponentDataHandler(JsonMapper jsonMapper, ApplicationContext applicationContext,
                                       SpringBootStartInfo springBootStartInfo) {
         this.jsonMapper = jsonMapper;
         this.springBootStartInfo = springBootStartInfo;
+        this.applicationContext = applicationContext;
     }
 
     @Override
     public void publishData(ApplicationContext applicationContext) {
+        refresh();
+    }
+
+    private void refresh() {
         new Thread(() -> {
             xxlJobInvokeBeans.clear();
             xxlJobEndpointMap.clear();
@@ -49,7 +56,6 @@ public class XXJJobComponentDataHandler implements ComponentDataHandler {
                 LOGGER.info("xxl-job count=" + xxlJobEndpointMap.size());
             }
             XxlModel xxlModel = new XxlModel();
-            xxlModel.setServerPort(springBootStartInfo.getAvailableTcpPort());
             xxlModel.setXxlJobInvokeEndpoint(xxlJobInvokeBeans);
             PluginCommunication.send(new XXLJobPackage(xxlModel));
         }).start();
@@ -70,6 +76,7 @@ public class XXJJobComponentDataHandler implements ComponentDataHandler {
                                         .withMethodName(method.getName())
                                         .build();
                         xxlJobInvokeEndpoint.setSpringInnerId(generatorId(method));
+                        xxlJobInvokeEndpoint.setServerPort(springBootStartInfo.getAvailableTcpPort());
                         ScheduledEndpoint scheduledEndpoint = new ScheduledEndpoint(method, bean);
                         xxlJobEndpointMap.put(xxlJobInvokeEndpoint.getSpringInnerId(), scheduledEndpoint);
                         xxlJobInvokeBeans.add(xxlJobInvokeEndpoint);
@@ -90,6 +97,9 @@ public class XXJJobComponentDataHandler implements ComponentDataHandler {
             if (taskMap.getOrDefault("type", "").equals("scheduled")) {
                 invokeScheduled(taskMap);
             }
+            if (taskMap.getOrDefault("type", "").equals("refresh")) {
+                refresh();
+            }
         } catch (Exception e) {
             e.printStackTrace();
         }
@@ -99,8 +109,17 @@ public class XXJJobComponentDataHandler implements ComponentDataHandler {
         String id = taskMap.getOrDefault("id", "").toString();
         try {
             if (xxlJobEndpointMap.containsKey(id)) {
+                Object param = taskMap.getOrDefault("param", null);
+                String strParam = param == null ? null : param.toString();
+                XxlJobContext.setXxlJobContext(new XxlJobContext(0, strParam, null, 0, 0));
                 ScheduledEndpoint scheduledEndpoint = xxlJobEndpointMap.get(id);
-                scheduledEndpoint.getMethod().invoke(scheduledEndpoint.getBean());
+                int parameterCount = scheduledEndpoint.getMethod().getParameterCount();
+                if (parameterCount == 0) {
+                    scheduledEndpoint.getMethod().invoke(scheduledEndpoint.getBean());
+                }
+                if (parameterCount == 1 && scheduledEndpoint.getMethod().getParameters()[0].getType() == String.class) {
+                    scheduledEndpoint.getMethod().invoke(scheduledEndpoint.getBean(), param);
+                }
             }
         } catch (Exception e) {
             e.printStackTrace();

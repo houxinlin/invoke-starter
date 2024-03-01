@@ -1,9 +1,18 @@
 package com.hxl.plugin.scheduledinvokestarter.model;
 
-public class XxlJobInvokeEndpoint  extends SpringInvokeEndpoint{
+public class XxlJobInvokeEndpoint extends SpringInvokeEndpoint {
     private String className;
     private String methodName;
     private String springInnerId;
+    private int serverPort;
+
+    public int getServerPort() {
+        return serverPort;
+    }
+
+    public void setServerPort(int serverPort) {
+        this.serverPort = serverPort;
+    }
 
     public String getClassName() {
         return className;

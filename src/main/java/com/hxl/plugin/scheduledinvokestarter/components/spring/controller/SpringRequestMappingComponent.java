@@ -62,8 +62,11 @@ public class SpringRequestMappingComponent implements ComponentDataHandler {
         return scheduledEndpointMap;
     }
 
+    private boolean isScanning = false;
     public static JsonMapper jsonMapper;
     private boolean refreshing = false;
+
+    private Set<com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller> controllerCache = new HashSet<>();
 
     public SpringRequestMappingComponent(ApplicationContext applicationContext,
                                          SpringBootStartInfo springBootStartInfo) {
@@ -86,7 +89,14 @@ public class SpringRequestMappingComponent implements ComponentDataHandler {
                     Map<String, Object> taskMap = jsonMapper.toMap(msg);
 
                     if (taskMap.getOrDefault("type", "").equals("refresh")) {
-                        SpringRequestMappingComponent.this.refresh();
+                        SpringRequestMappingComponent.this.refresh(true);
+                        return;
+                    }
+                    if (taskMap.getOrDefault("type", "").equals("pull_controller_data")) {
+                        Object className = taskMap.get("className");
+                        if (className != null) {
+                            SpringRequestMappingComponent.this.refresh(className.toString());
+                        }
                         return;
                     }
                     if (taskMap.getOrDefault("type", "").equals("controller")) {
@@ -168,36 +178,43 @@ public class SpringRequestMappingComponent implements ComponentDataHandler {
     }
 
     private Set<com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller> collectorRequestMapping() {
-        Map<String, RequestMappingHandlerMapping> beansOfType = applicationContext.getBeansOfType(RequestMappingHandlerMapping.class);
-        String contextPath = getContextPath(applicationContext);
-        int serverPort = getServerPort(applicationContext);
+        isScanning = true;
         Set<com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller> result = new HashSet<>();
-        for (RequestMappingHandlerMapping requestMappingHandlerMapping : beansOfType.values()) {
-            Map<RequestMappingInfo, HandlerMethod> handlerMethods = requestMappingHandlerMapping.getHandlerMethods();
-            for (RequestMappingInfo requestMappingInfo : handlerMethods.keySet()) {
-                HandlerMethod handlerMethod = handlerMethods.get(requestMappingInfo);
-                for (String url : getUrlPattern(requestMappingInfo)) {
-                    RequestMethod requestMethod = requestMappingInfo.getMethodsCondition().getMethods().stream().findFirst().orElse(RequestMethod.GET);
-                    com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller controller =
-                            com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller.ControllerBuilder
-                                    .aController()
-                                    .withContextPath(contextPath)
-                                    .withHttpMethod(requestMethod.name())
-                                    .withMethodName(handlerMethod.getMethod().getName())
-                                    .withUrl(url)
-                                    .withServerPort(serverPort)
-                                    .withSimpleClassName(handlerMethod.getBeanType().getName())
-                                    .build(new com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller());
-                    controller.setParamClassList(getParamClassList(handlerMethod));
+        try {
+            Map<String, RequestMappingHandlerMapping> beansOfType = applicationContext.getBeansOfType(RequestMappingHandlerMapping.class);
+            String contextPath = getContextPath(applicationContext);
+            int serverPort = getServerPort(applicationContext);
+            for (RequestMappingHandlerMapping requestMappingHandlerMapping : beansOfType.values()) {
+                Map<RequestMappingInfo, HandlerMethod> handlerMethods = requestMappingHandlerMapping.getHandlerMethods();
+                for (RequestMappingInfo requestMappingInfo : handlerMethods.keySet()) {
+                    HandlerMethod handlerMethod = handlerMethods.get(requestMappingInfo);
+                    for (String url : getUrlPattern(requestMappingInfo)) {
+                        RequestMethod requestMethod = requestMappingInfo.getMethodsCondition().getMethods().stream().findFirst().orElse(RequestMethod.GET);
+                        com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller controller =
+                                com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller.ControllerBuilder
+                                        .aController()
+                                        .withContextPath(contextPath)
+                                        .withHttpMethod(requestMethod.name())
+                                        .withMethodName(handlerMethod.getMethod().getName())
+                                        .withUrl(url)
+                                        .withServerPort(serverPort)
+                                        .withSimpleClassName(handlerMethod.getBeanType().getName())
+                                        .build(new com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller());
+                        controller.setParamClassList(getParamClassList(handlerMethod));
 
-                    String id = generatorId(controller);
-                    controller.setSpringInnerId(id);
-                    handlerMethodMaps.put(id, new ControllerEndpoint(requestMappingInfo, handlerMethod));
-                    result.add(controller);
+                        String id = generatorId(controller);
+                        controller.setSpringInnerId(id);
+                        handlerMethodMaps.put(id, new ControllerEndpoint(requestMappingInfo, handlerMethod));
+                        result.add(controller);
+                        controllerCache.add(controller);
+                    }
                 }
             }
+        } finally {
+            isScanning = false;
         }
         return result;
+
     }
 
     @Override
@@ -205,7 +222,7 @@ public class SpringRequestMappingComponent implements ComponentDataHandler {
         ProjectStartupModel projectStartupModel = new ProjectStartupModel(springBootStartInfo.getAvailableTcpPort());
         projectStartupModel.setProjectPort(getServerPort(applicationContext));
         PluginCommunication.send(new ProjectStartupCommunicationPackage(projectStartupModel));
-        this.refresh();
+        this.refresh(false);
     }
 
     private ScheduledAnnotationBeanPostProcessor getScheduledAnnotationBeanPostProcessorBean() {
@@ -245,23 +262,19 @@ public class SpringRequestMappingComponent implements ComponentDataHandler {
         }
     }
 
-    private void doRefresh() {
+    private void doRefresh(boolean ignoreSize) {
         try {
             Set<com.hxl.plugin.scheduledinvokestarter.components.spring.controller.data.Controller> controllers = collectorRequestMapping();
-            if (CoolRequestStarConfig.isDebug()) {
-                System.out.println(jsonMapper.toJSONString(controllers));
-            }
-            PluginCommunication.send(new ClearCommunicationPackage(new ClearModel()));//插件目前没有响应
+            if (controllers.size() < 200 || ignoreSize) {
+                if (CoolRequestStarConfig.isDebug()) {
+                    System.out.println(jsonMapper.toJSONString(controllers));
+                }
+                PluginCommunication.send(new ClearCommunicationPackage(new ClearModel()));//插件目前没有响应
 
-            //已进度条得方法发送到插件
-            for (Controller controller : controllers) {
-                RequestMappingModel requestMappingModel = new RequestMappingModel();
-                requestMappingModel.setController(controller);
-                requestMappingModel.setTotal(controllers.size());
-                requestMappingModel.setPluginPort(springBootStartInfo.getAvailableTcpPort());
-                requestMappingModel.setServerPort(getServerPort(applicationContext));
-                RequestMappingCommunicationPackage requestMappingCommunicationPackage = new RequestMappingCommunicationPackage(requestMappingModel);
-                PluginCommunication.send(requestMappingCommunicationPackage);
+                //已进度条得方法发送到插件
+                for (Controller controller : controllers) {
+                    createAndSendRequestMappingModel(controller, controllers.size());
+                }
             }
 
             for (String beanDefinitionName : applicationContext.getBeanDefinitionNames()) {
@@ -277,10 +290,32 @@ public class SpringRequestMappingComponent implements ComponentDataHandler {
         }
     }
 
-    private void refresh() {
+    private void refresh(String className) {
+        if (isScanning) return;
+        threadPoolExecutor.submit(() -> {
+            List<Controller> queryResult = controllerCache.stream().filter(controller -> controller.getSimpleClassName().equalsIgnoreCase(className)).collect(Collectors.toList());
+            for (Controller controller : queryResult) {
+                if (controller.getSimpleClassName().equalsIgnoreCase(className)) {
+                    createAndSendRequestMappingModel(controller, queryResult.size());
+                }
+            }
+        });
+    }
+
+    private void createAndSendRequestMappingModel(Controller controller, int size) {
+        RequestMappingModel requestMappingModel = new RequestMappingModel();
+        requestMappingModel.setController(controller);
+        requestMappingModel.setTotal(size);
+        requestMappingModel.setPluginPort(springBootStartInfo.getAvailableTcpPort());
+        requestMappingModel.setServerPort(getServerPort(applicationContext));
+        RequestMappingCommunicationPackage requestMappingCommunicationPackage = new RequestMappingCommunicationPackage(requestMappingModel);
+        PluginCommunication.send(requestMappingCommunicationPackage);
+    }
+
+    private void refresh(boolean ignoreSize) {
         if (refreshing) return;
         refreshing = true;
-        threadPoolExecutor.submit(this::doRefresh);
+        threadPoolExecutor.submit(() -> doRefresh(ignoreSize));
     }
 
     private String generatorId(Controller controller) {
