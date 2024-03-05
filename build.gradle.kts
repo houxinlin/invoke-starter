@@ -47,6 +47,9 @@ dependencies {
     compileOnly("com.alibaba:fastjson:2.0.32")
     compileOnly("com.alibaba.fastjson2:fastjson2:2.0.42")
     compileOnly("com.google.code.gson:gson:2.7")
+    // https://mvnrepository.com/artifact/org.apache.mina/mina-core
+    compileOnly("org.apache.mina:mina-core:2.2.3")
+
 
 
 }
