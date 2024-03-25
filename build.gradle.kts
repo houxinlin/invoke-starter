@@ -43,12 +43,10 @@ dependencies {
     compileOnly("org.springframework:spring-test:5.3.25"){
         exclude(group="org.springframework",module = "spring-core")
     }
-
+    compileOnly("com.xuxueli:xxl-job-core:2.4.0")
     compileOnly("com.alibaba:fastjson:2.0.32")
     compileOnly("com.alibaba.fastjson2:fastjson2:2.0.42")
     compileOnly("com.google.code.gson:gson:2.7")
-    // https://mvnrepository.com/artifact/org.apache.mina/mina-core
-    compileOnly("org.apache.mina:mina-core:2.2.3")
 
 
 
@@ -57,7 +55,4 @@ dependencyManagement {
     imports {
         mavenBom("org.springframework.cloud:spring-cloud-dependencies:2021.0.3")
     }
-}
-tasks.withType<Test> {
-    useJUnitPlatform()
 }
