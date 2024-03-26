@@ -15,7 +15,6 @@ public class ObjectMapperJsonMapper implements JsonMapper {
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
 
     }
-
     @Override
     public Map<String, Object> toMap(String json) throws JsonException {
         try {

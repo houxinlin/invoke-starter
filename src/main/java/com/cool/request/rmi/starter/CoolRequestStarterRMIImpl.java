@@ -11,7 +11,7 @@ import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 
 public class CoolRequestStarterRMIImpl extends UnicastRemoteObject implements ICoolRequestStarterRMI {
-    private ComponentLoader componentLoader;
+    private final ComponentLoader componentLoader;
 
     public CoolRequestStarterRMIImpl(ComponentLoader componentLoader) throws RemoteException {
         this.componentLoader = componentLoader;
