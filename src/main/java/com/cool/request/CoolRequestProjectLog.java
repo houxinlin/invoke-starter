@@ -16,7 +16,6 @@ public class CoolRequestProjectLog {
     static {
         init();
     }
-
     private static String getLogName() {
         if (!Config.LOG_HOME.toFile().exists()) {
             Config.LOG_HOME.toFile().mkdirs();

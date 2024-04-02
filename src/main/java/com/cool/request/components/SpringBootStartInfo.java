@@ -7,9 +7,7 @@ import com.cool.request.rmi.starter.ICoolRequestStarterRMI;
 public class SpringBootStartInfo {
     private int availableTcpPort;
     private ICoolRequestPluginRMI coolRequestPluginRMI;
-
     private ICoolRequestStarterRMI coolRequestStarterRMI;
-
     public ICoolRequestPluginRMI getCoolRequestPluginRMI() {
         return coolRequestPluginRMI;
     }
