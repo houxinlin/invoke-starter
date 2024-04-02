@@ -242,7 +242,7 @@ public class Dispatcher {
 
                     if (requestData.isUseInterceptor()) {
                         if (!applyPreHandle(interceptorList, handler, mockHttpServletRequest, mockHttpServletResponse)) {
-                            return null;
+                            return responseToPlugin(mockHttpServletResponse, requestData, exception, mappedHandler);
                         }
                     }
                     CompatibilityUtil.invokeHandlerAdapter_handle(ha, mockHttpServletRequest, mockHttpServletResponse, handler);

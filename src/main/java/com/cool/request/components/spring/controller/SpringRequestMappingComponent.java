@@ -71,12 +71,13 @@ public class SpringRequestMappingComponent implements
     }
 
     @Override
-    public void invokeScheduled(String className, String methodName, String param) {
+    public boolean invokeScheduled(String className, String methodName, String param) {
         try {
-            doInvokeScheduled(className, methodName, param);
+            return doInvokeScheduled(className, methodName, param);
         } catch (Exception e) {
             CoolRequestProjectLog.userExceptionLog(e);
         }
+        return false;
     }
 
     @Override
@@ -89,7 +90,7 @@ public class SpringRequestMappingComponent implements
         }
     }
 
-    private void doInvokeScheduled(String className, String methodName, String param) throws Exception {
+    private boolean doInvokeScheduled(String className, String methodName, String param) throws Exception {
         CoolRequestProjectLog.log("调用定时器:" + className + "." + methodName);
         try {
             for (DynamicSpringScheduled scheduledInvokeBean : scheduledInvokeBeans) {
@@ -100,11 +101,13 @@ public class SpringRequestMappingComponent implements
                             scheduledEndpoint.getMethod().getName());
                     scheduledEndpoint.getMethod().setAccessible(true);
                     scheduledEndpoint.getMethod().invoke(scheduledEndpoint.getBean());
+                    return true;
                 }
             }
         } catch (Exception e) {
             CoolRequestProjectLog.logWithDebug(e);
         }
+        return false;
     }
 
     private InvokeResponseModel doInvokeController(ReflexHttpRequestParamAdapterBody reflexHttpRequestParamAdapterBody) throws
@@ -121,6 +124,7 @@ public class SpringRequestMappingComponent implements
                 return ((InvokeResponseModel) invoke);
             }
         } catch (Throwable ignored) {
+
         }
         throw new RuntimeException();
     }
@@ -209,9 +213,32 @@ public class SpringRequestMappingComponent implements
             springBootStartInfo.getCoolRequestPluginRMI().projectStartup(springBootStartInfo.getAvailableTcpPort(),
                     getServerPort(applicationContext));
         } catch (RemoteException e) {
-            e.printStackTrace();
         }
         this.refresh(false);
+    }
+
+    private void doRefresh(boolean ignoreSize) {
+        CoolRequestProjectLog.log("MVC推送数据");
+        try {
+            List<DynamicController> controllers = collectorRequestMapping();
+            springBootStartInfo.getCoolRequestPluginRMI()
+                    .loadController(controllers);
+        } catch (Exception e) {
+            CoolRequestProjectLog.log(e.getMessage());
+        }
+
+        try {
+            CoolRequestProjectLog.log("准备解析定时器");
+            Map<String, Object> beans = applicationContext.getBeansOfType(Object.class);
+            for (Object bean : beans.values()) {
+                parseSpringScheduled(bean);
+            }
+            CoolRequestProjectLog.log("定时器解析完成，共" + scheduledInvokeBeans.size() + "个");
+            springBootStartInfo.getCoolRequestPluginRMI().loadScheduled(this.scheduledInvokeBeans);
+        } catch (Exception e) {
+            CoolRequestProjectLog.log(e.getMessage());
+        }
+        refreshing = false;
     }
 
     public void parseSpringScheduled(Object bean) {
@@ -219,8 +246,8 @@ public class SpringRequestMappingComponent implements
             Class<?> targetClass = AopProxyUtils.ultimateTargetClass(bean);
             if (AnnotationUtilsAdapter.isCandidateClass(targetClass, Arrays.asList(Scheduled.class, Schedules.class))) {
                 Set<Method> annotatedMethods = MethodIntrospector.selectMethods(targetClass,
-                        (ReflectionUtils.MethodFilter) method -> AnnotatedElementUtils.hasAnnotation(method, Scheduled.class) || AnnotatedElementUtils.hasAnnotation(method, Schedules.class));
-
+                        (ReflectionUtils.MethodFilter) method -> AnnotatedElementUtils.hasAnnotation(method, Scheduled.class)
+                                || AnnotatedElementUtils.hasAnnotation(method, Schedules.class));
 
                 if (!annotatedMethods.isEmpty()) {
                     annotatedMethods.forEach((method) -> {
@@ -229,38 +256,14 @@ public class SpringRequestMappingComponent implements
                                 .withMethodName(method.getName())
                                 .withServerPort(springBootStartInfo.getAvailableTcpPort())
                                 .build();
-
                         ScheduledEndpoint scheduledEndpoint = new ScheduledEndpoint(method, bean);
                         springScheduled.setAttachScheduledEndpoint(scheduledEndpoint);
                         scheduledInvokeBeans.add(springScheduled);
-
                     });
                 }
             }
         } catch (Exception ignored) {
-            ignored.printStackTrace();
             CoolRequestProjectLog.logWithDebug(ignored);
-        }
-    }
-
-    private void doRefresh(boolean ignoreSize) {
-        try {
-            CoolRequestProjectLog.log("MVC推送数据");
-            List<DynamicController> controllers = collectorRequestMapping();
-            springBootStartInfo.getCoolRequestPluginRMI()
-                    .loadController(controllers);
-
-            CoolRequestProjectLog.log("准备解析定时器");
-            for (String beanDefinitionName : applicationContext.getBeanDefinitionNames()) {
-                parseSpringScheduled(applicationContext.getBean(beanDefinitionName));
-            }
-            CoolRequestProjectLog.log("定时器解析完成，共" + scheduledInvokeBeans.size() + "个");
-            springBootStartInfo.getCoolRequestPluginRMI().loadScheduled(this.scheduledInvokeBeans);
-        } catch (Exception e) {
-            e.printStackTrace();
-            CoolRequestProjectLog.log(e.getMessage());
-        } finally {
-            refreshing = false;
         }
     }
 

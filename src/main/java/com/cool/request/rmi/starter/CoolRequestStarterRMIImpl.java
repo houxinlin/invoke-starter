@@ -31,12 +31,13 @@ public class CoolRequestStarterRMIImpl extends UnicastRemoteObject implements IC
     }
 
     @Override
-    public void invokeScheduled(String className, String methodName, String param) throws RemoteException {
+    public boolean invokeScheduled(String className, String methodName, String param) throws RemoteException {
         for (ComponentListener componentListener : componentLoader.getComponentListeners()) {
             if (componentListener instanceof ScheduledListener) {
                 ((ScheduledListener) componentListener)
                         .invokeScheduled(className, methodName, param);
             }
         }
+        return false;
     }
 }
