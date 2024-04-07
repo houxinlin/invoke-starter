@@ -42,11 +42,15 @@ public class XXJJobComponentDataHandler implements ComponentDataHandler, Schedul
     private void doRefresh() {
         xxlJobInvokeBeans.clear();
         xxlJobEndpointMap.clear();
-        for (String beanDefinitionName : applicationContext.getBeanDefinitionNames()) {
-            parseXXLJob(applicationContext.getBean(beanDefinitionName));
+        Map<String, Object> beans = applicationContext.getBeansOfType(Object.class);
+        for (Object value : beans.values()) {
+            try {
+                parseXXLJob(value);
+            } catch (Exception ignored) {
+            }
         }
-        CoolRequestProjectLog.log("xxl-job count=" + xxlJobEndpointMap.size());
         try {
+            CoolRequestProjectLog.log("xxl-job count=" + xxlJobEndpointMap.size());
             springBootStartInfo.getCoolRequestPluginRMI().loadXXLScheduled(xxlJobInvokeBeans);
         } catch (RemoteException ignored) {
         }
@@ -57,8 +61,8 @@ public class XXJJobComponentDataHandler implements ComponentDataHandler, Schedul
     }
 
     @Override
-    public void invokeScheduled(String className, String methodName, String param) {
-        doInvokeScheduled(className, methodName, param);
+    public boolean invokeScheduled(String className, String methodName, String param) {
+        return doInvokeScheduled(className, methodName, param);
     }
 
     public void parseXXLJob(Object bean) {
@@ -85,7 +89,7 @@ public class XXJJobComponentDataHandler implements ComponentDataHandler, Schedul
         }
     }
 
-    private void doInvokeScheduled(String className, String methodName, String param) {
+    private boolean doInvokeScheduled(String className, String methodName, String param) {
         try {
             CoolRequestProjectLog.log("调用xxl-job" + className + "." + methodName);
             for (DynamicXxlJobScheduled xxlJobInvokeBean : xxlJobInvokeBeans) {
@@ -96,9 +100,11 @@ public class XXJJobComponentDataHandler implements ComponentDataHandler, Schedul
                     int parameterCount = scheduledEndpoint.getMethod().getParameterCount();
                     if (parameterCount == 0) {
                         scheduledEndpoint.getMethod().invoke(scheduledEndpoint.getBean());
+                        return true;
                     }
                     if (parameterCount == 1 && scheduledEndpoint.getMethod().getParameters()[0].getType() == String.class) {
                         scheduledEndpoint.getMethod().invoke(scheduledEndpoint.getBean(), param);
+                        return true;
                     }
                 }
             }
@@ -106,5 +112,6 @@ public class XXJJobComponentDataHandler implements ComponentDataHandler, Schedul
         } catch (Exception e) {
             CoolRequestProjectLog.userExceptionLog(e);
         }
+        return false;
     }
 }

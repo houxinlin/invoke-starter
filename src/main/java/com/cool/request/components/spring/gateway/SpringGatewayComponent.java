@@ -1,6 +1,7 @@
 package com.cool.request.components.spring.gateway;
 
 
+import com.cool.request.CoolRequestProjectLog;
 import com.cool.request.components.ComponentDataHandler;
 import com.cool.request.components.SpringBootStartInfo;
 import com.cool.request.utils.SpringUtils;
@@ -23,7 +24,6 @@ import java.util.regex.Pattern;
 public class SpringGatewayComponent implements ComponentDataHandler {
     private final ApplicationContext applicationContext;
     private final SpringBootStartInfo springBootStartInfo;
-    private static final ScheduledThreadPoolExecutor scheduledThreadPool = new ScheduledThreadPoolExecutor(2);
 
     public SpringGatewayComponent(ApplicationContext applicationContext,
                                   SpringBootStartInfo springBootStartInfo) {
@@ -33,30 +33,34 @@ public class SpringGatewayComponent implements ComponentDataHandler {
 
     @Override
     public void componentInit(ApplicationContext applicationContext) {
-        scheduledThreadPool.scheduleAtFixedRate(this::doPush, 0, 10, TimeUnit.SECONDS);
+        new Thread(() -> doPush()).start();
     }
 
     private void doPush() throws BeansException {
-        RouteLocator bean = applicationContext.getBean(RouteLocator.class);
-        List<Route> block = bean.getRoutes().collectList().block();
-        if (block == null) return;
-        int serverPort = SpringUtils.getServerPort(applicationContext);
-        String contextPath = SpringUtils.getContextPath(applicationContext);
-        for (Route route : block) {
-            AsyncPredicate<ServerWebExchange> predicate = route.getPredicate();
-            if (predicate instanceof AsyncPredicate.DefaultAsyncPredicate) {
-                Field delegate = ReflectionUtils.findField(AsyncPredicate.DefaultAsyncPredicate.class, "delegate");
-                if (delegate == null) break;
-                ReflectionUtils.makeAccessible(delegate);
-                Object delegateValue = ReflectionUtils.getField(delegate, predicate);
-                if (delegateValue == null) return;
-                try {
-                    springBootStartInfo.getCoolRequestPluginRMI()
-                            .loadGateway(contextPath, serverPort, getPredicate(delegateValue.toString()), route.getId());
-                } catch (RemoteException ignored) {
+        try {
+            RouteLocator bean = applicationContext.getBean(RouteLocator.class);
+            List<Route> block = bean.getRoutes().collectList().block();
+            if (block == null) return;
+            int serverPort = SpringUtils.getServerPort(applicationContext);
+            String contextPath = SpringUtils.getContextPath(applicationContext);
+            for (Route route : block) {
+                AsyncPredicate<ServerWebExchange> predicate = route.getPredicate();
+                if (predicate instanceof AsyncPredicate.DefaultAsyncPredicate) {
+                    Field delegate = ReflectionUtils.findField(AsyncPredicate.DefaultAsyncPredicate.class, "delegate");
+                    if (delegate == null) break;
+                    ReflectionUtils.makeAccessible(delegate);
+                    Object delegateValue = ReflectionUtils.getField(delegate, predicate);
+                    if (delegateValue == null) return;
+                    try {
+                        springBootStartInfo.getCoolRequestPluginRMI()
+                                .loadGateway(contextPath, serverPort, getPredicate(delegateValue.toString()), route.getId());
+                    } catch (RemoteException ignored) {
 
+                    }
                 }
             }
+        } catch (Exception e) {
+            CoolRequestProjectLog.logWithDebug(e);
         }
 
     }

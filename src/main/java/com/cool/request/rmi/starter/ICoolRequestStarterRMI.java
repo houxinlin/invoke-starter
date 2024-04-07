@@ -11,5 +11,5 @@ public interface ICoolRequestStarterRMI extends Remote {
             ReflexHttpRequestParamAdapterBody reflexHttpRequestParamAdapterBody)
             throws RemoteException;
 
-    public void invokeScheduled(String className, String methodName, String param) throws RemoteException;
+    public boolean invokeScheduled(String className, String methodName, String param) throws RemoteException;
 }
