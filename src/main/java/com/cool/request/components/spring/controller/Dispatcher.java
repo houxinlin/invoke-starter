@@ -251,6 +251,7 @@ public class Dispatcher {
             }
         } catch (Exception e) {
             CoolRequestProjectLog.logWithDebug(e);
+            CoolRequestProjectLog.userExceptionLog(e);
             exception = e;
         } finally {
             invokeResponseModel = responseToPlugin(mockHttpServletResponse, requestData, exception, mappedHandler);
