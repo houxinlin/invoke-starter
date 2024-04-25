@@ -43,11 +43,9 @@ public class Dispatcher {
     private List<HandlerMapping> handlerMappings;
     private boolean parseRequestPath;
     private List<HandlerAdapter> handlerAdapters;
-    private final SpringRequestMappingComponent springRequestMappingComponent;
 
-    public Dispatcher(ApplicationContext applicationContext, SpringRequestMappingComponent springRequestMappingComponent) {
+    public Dispatcher(ApplicationContext applicationContext) {
         {
-            this.springRequestMappingComponent = springRequestMappingComponent;
             this.environment = applicationContext.getEnvironment();
 
             Map<String, HandlerMapping> matchingBeans =
@@ -108,7 +106,6 @@ public class Dispatcher {
         for (int i = interceptorList.size() - 1; i >= 0; i--) {
             HandlerInterceptor interceptor = interceptorList.get(i);
             CompatibilityUtil.invokeHandlerInterceptor_postHandle(interceptor, request, response, handler, mv);
-//            interceptor.postHandle(request, response, handler, mv);
         }
     }
 
@@ -268,6 +265,9 @@ public class Dispatcher {
         return invokeResponseModel;
     }
 
+    /**
+     * 通过反射进入到这里x,不要删除
+     */
     public InvokeResponseModel invokeController(ReflexHttpRequestParamAdapterBody requestData, int serverPort) {
         return doInvokeController(requestData, serverPort);
     }
