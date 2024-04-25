@@ -7,7 +7,6 @@ public class ReflexRequestBody implements Serializable {
     private String type;
     private String id;
 
-
     public String getId() {
         return id;
     }

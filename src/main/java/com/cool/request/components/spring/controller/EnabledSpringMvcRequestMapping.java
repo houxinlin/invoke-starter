@@ -12,7 +12,6 @@ import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 
 public class EnabledSpringMvcRequestMapping implements ComponentSupport {
-
     @Override
     public boolean canSupport(ApplicationContext applicationContext) {
         try {

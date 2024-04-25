@@ -23,6 +23,8 @@ import java.rmi.registry.Registry;
 import java.util.ArrayList;
 import java.util.List;
 
+import static com.cool.request.utils.SpringUtils.getServerPort;
+
 /**
  * 组件数据加载器
  */
@@ -79,8 +81,6 @@ public class ComponentLoader implements
                 String json = applicationContext.getEnvironment().getProperty("cool.request.plugin.json");
                 int availableTcpPort = SocketUtils.findAvailableTcpPort();
 
-                CoolRequestProjectLog.log("Cool Request Starter启动，监听端口:" + availableTcpPort);
-
                 JsonMapper jsonMapper = JsonMapperFactory.getJsonMapper(json);
                 if (jsonMapper == null) {
                     CoolRequestProjectLog.log("无法找到JSON解析库");
@@ -90,6 +90,16 @@ public class ComponentLoader implements
                 springBootStartInfo.setJsonMapper(jsonMapper);
                 springBootStartInfo.setCoolRequestPluginRMI(coolRequestPluginRMI);
                 springBootStartInfo.setCoolRequestStarterRMI(createStarterRMI(availableTcpPort));
+
+                //发送项目启动
+                try {
+                    if (springBootStartInfo.getCoolRequestPluginRMI() != null) {
+                        springBootStartInfo.getCoolRequestPluginRMI().projectStartup(springBootStartInfo.getAvailableTcpPort(),
+                                getServerPort(applicationContext));
+                    }
+                } catch (RemoteException ignored) {
+                }
+
                 for (ComponentSupport componentLoader : componentLoaders) {
                     if (componentLoader.canSupport(applicationContext)) {
                         ComponentDataHandler componentDataHandler =
@@ -112,6 +122,7 @@ public class ComponentLoader implements
                 }
 
             } catch (Exception e) {
+                e.printStackTrace();
             }
         }
     }

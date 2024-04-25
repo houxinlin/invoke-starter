@@ -9,6 +9,9 @@ public class KeyValue implements Cloneable, Serializable {
     private String valueType = "string";
     private String describe = "";
 
+    public KeyValue() {
+    }
+
     public KeyValue(String key, String value) {
         this.key = key;
         this.value = value;
@@ -35,8 +38,6 @@ public class KeyValue implements Cloneable, Serializable {
         this.describe = describe;
     }
 
-    public KeyValue() {
-    }
 
     public String getValueType() {
         return valueType;

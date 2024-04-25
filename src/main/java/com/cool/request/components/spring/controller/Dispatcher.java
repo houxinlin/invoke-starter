@@ -251,9 +251,12 @@ public class Dispatcher {
                     }
                 }
 
+            } else {
+                CoolRequestProjectLog.log("无法找到mappedHandler：" + requestData.getUrl());
             }
         } catch (Exception e) {
             CoolRequestProjectLog.logWithDebug(e);
+            CoolRequestProjectLog.userExceptionLog(e);
             exception = e;
         } finally {
             invokeResponseModel = responseToPlugin(mockHttpServletResponse, requestData, exception, mappedHandler);
@@ -268,7 +271,6 @@ public class Dispatcher {
     public InvokeResponseModel invokeController(ReflexHttpRequestParamAdapterBody requestData, int serverPort) {
         return doInvokeController(requestData, serverPort);
     }
-
 
     private String probeContentType(Path path) {
         if (Files.isDirectory(path)) return "";

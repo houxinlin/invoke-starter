@@ -16,6 +16,7 @@ public class CoolRequestProjectLog {
     static {
         init();
     }
+
     private static String getLogName() {
         if (!Config.LOG_HOME.toFile().exists()) {
             Config.LOG_HOME.toFile().mkdirs();
@@ -26,6 +27,7 @@ public class CoolRequestProjectLog {
     }
 
     public static void log(String log) {
+        if (logger == null || fileHandler == null) return;
         logger.info(log);
         fileHandler.flush();
     }
@@ -37,6 +39,7 @@ public class CoolRequestProjectLog {
 
     @SuppressWarnings("All")
     public static void logWithDebug(Throwable log) {
+        if (logger == null) return;
         logger.info(log.getMessage());
     }
 
@@ -49,7 +52,7 @@ public class CoolRequestProjectLog {
             SimpleFormatter formatter = new SimpleFormatter();
             fileHandler.setFormatter(formatter);
         } catch (IOException e) {
-            throw new RuntimeException(e);
+            e.printStackTrace();
         }
     }
 }

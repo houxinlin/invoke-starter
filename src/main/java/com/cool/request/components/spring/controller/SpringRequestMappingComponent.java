@@ -55,7 +55,6 @@ public class SpringRequestMappingComponent implements
     private final ApplicationContext applicationContext;
     private final List<DynamicSpringScheduled> scheduledInvokeBeans = new ArrayList<>();
     private final SpringBootStartInfo springBootStartInfo;
-    private boolean isScanning = false;
     public static JsonMapper jsonMapper;
     private boolean refreshing = false;
 
@@ -84,7 +83,7 @@ public class SpringRequestMappingComponent implements
     public InvokeResponseModel invokeController(ReflexHttpRequestParamAdapterBody reflexHttpRequestParamAdapterBody) {
         try {
             return doInvokeController(reflexHttpRequestParamAdapterBody);
-        } catch (Exception e) {
+        } catch (Throwable e) {
             CoolRequestProjectLog.userExceptionLog(e);
             return new ExceptionInvokeResponseModel(reflexHttpRequestParamAdapterBody.getId(), e);
         }
@@ -111,22 +110,20 @@ public class SpringRequestMappingComponent implements
     }
 
     private InvokeResponseModel doInvokeController(ReflexHttpRequestParamAdapterBody reflexHttpRequestParamAdapterBody) throws
-            Exception {
+            Throwable {
         MockClassLoader mockClassLoader = MockClassLoader.newMockClassLoader();
         Class<?> aClass = mockClassLoader.loadClass("com.cool.request.components.spring.controller.Dispatcher");
         Object dispatcher = aClass.getDeclaredConstructor(ApplicationContext.class, SpringRequestMappingComponent.class)
                 .newInstance(applicationContext, this);
-        try {
-            MethodType methodType = MethodType.methodType(InvokeResponseModel.class, ReflexHttpRequestParamAdapterBody.class, int.class);
-            MethodHandle handle = MethodHandles.lookup().findVirtual(aClass, "invokeController", methodType);
-            Object invoke = handle.invoke(dispatcher, reflexHttpRequestParamAdapterBody, getServerPort(applicationContext));
-            if (invoke instanceof InvokeResponseModel) {
-                return ((InvokeResponseModel) invoke);
-            }
-        } catch (Throwable ignored) {
+        MethodType methodType = MethodType.methodType(InvokeResponseModel.class, ReflexHttpRequestParamAdapterBody.class, int.class);
+        MethodHandle handle = MethodHandles.lookup().findVirtual(aClass, "invokeController", methodType);
+        Object invoke = handle.invoke(dispatcher, reflexHttpRequestParamAdapterBody, getServerPort(applicationContext));
+        if (invoke == null) throw new IllegalArgumentException("invokeController invoke null");
 
+        if (invoke instanceof InvokeResponseModel) {
+            return ((InvokeResponseModel) invoke);
         }
-        throw new RuntimeException();
+        throw new IllegalArgumentException("arg error");
     }
 
     private boolean hasMethod(Class<?> targetClass, String methodName, Class<?> retClass, Class<?>... ptypes) {
@@ -170,37 +167,32 @@ public class SpringRequestMappingComponent implements
     }
 
     private List<DynamicController> collectorRequestMapping() {
-        isScanning = true;
         int serverPort = getServerPort(applicationContext);
         List<DynamicController> result = new ArrayList<>();
-        try {
-            Map<String, RequestMappingHandlerMapping> beansOfType = applicationContext.getBeansOfType(RequestMappingHandlerMapping.class);
-            String contextPath = getContextPath(applicationContext);
-            for (RequestMappingHandlerMapping requestMappingHandlerMapping : beansOfType.values()) {
-                Map<RequestMappingInfo, HandlerMethod> handlerMethods = requestMappingHandlerMapping.getHandlerMethods();
-                for (RequestMappingInfo requestMappingInfo : handlerMethods.keySet()) {
-                    HandlerMethod handlerMethod = handlerMethods.get(requestMappingInfo);
-                    for (String url : getUrlPattern(requestMappingInfo)) {
-                        RequestMethod requestMethod = requestMappingInfo.getMethodsCondition().getMethods().stream().findFirst().orElse(RequestMethod.GET);
+        Map<String, RequestMappingHandlerMapping> beansOfType = applicationContext.getBeansOfType(RequestMappingHandlerMapping.class);
+        String contextPath = getContextPath(applicationContext);
+        for (RequestMappingHandlerMapping requestMappingHandlerMapping : beansOfType.values()) {
+            Map<RequestMappingInfo, HandlerMethod> handlerMethods = requestMappingHandlerMapping.getHandlerMethods();
+            for (RequestMappingInfo requestMappingInfo : handlerMethods.keySet()) {
+                HandlerMethod handlerMethod = handlerMethods.get(requestMappingInfo);
+                for (String url : getUrlPattern(requestMappingInfo)) {
+                    RequestMethod requestMethod = requestMappingInfo.getMethodsCondition().getMethods().stream().findFirst().orElse(RequestMethod.GET);
 
-                        DynamicController dynamicController = (DynamicController) Controller.ControllerBuilder
-                                .aController()
-                                .withContextPath(contextPath)
-                                .withHttpMethod(requestMethod.name())
-                                .withMethodName(handlerMethod.getMethod().getName())
-                                .withUrl(url)
-                                .withServerPort(serverPort)
-                                .withSimpleClassName(handlerMethod.getBeanType().getName())
-                                .build(new DynamicController());
-                        dynamicController.setParamClassList(getParamClassList(handlerMethod));
-                        dynamicController.setSpringBootStartPort(springBootStartInfo.getAvailableTcpPort());
-                        result.add(dynamicController);
-                        controllerCache.add(dynamicController);
-                    }
+                    DynamicController dynamicController = (DynamicController) Controller.ControllerBuilder
+                            .aController()
+                            .withContextPath(contextPath)
+                            .withHttpMethod(requestMethod.name())
+                            .withMethodName(handlerMethod.getMethod().getName())
+                            .withUrl(url)
+                            .withServerPort(serverPort)
+                            .withSimpleClassName(handlerMethod.getBeanType().getName())
+                            .build(new DynamicController());
+                    dynamicController.setParamClassList(getParamClassList(handlerMethod));
+                    dynamicController.setSpringBootStartPort(springBootStartInfo.getAvailableTcpPort());
+                    result.add(dynamicController);
+                    controllerCache.add(dynamicController);
                 }
             }
-        } finally {
-            isScanning = false;
         }
         return result;
 
@@ -208,12 +200,6 @@ public class SpringRequestMappingComponent implements
 
     @Override
     public void componentInit(ApplicationContext applicationContext) {
-        //发送项目启动
-        try {
-            springBootStartInfo.getCoolRequestPluginRMI().projectStartup(springBootStartInfo.getAvailableTcpPort(),
-                    getServerPort(applicationContext));
-        } catch (RemoteException e) {
-        }
         this.refresh(false);
     }
 
