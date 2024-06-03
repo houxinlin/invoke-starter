@@ -9,7 +9,7 @@ public class RMICallMethod implements Serializable {
     private String className;
 
     private String methodName;
-    private Map<String, String> parameters;
+    private Map<String, Object> parameters;
 
     private List<String> parameterTypes;
 
@@ -37,11 +37,11 @@ public class RMICallMethod implements Serializable {
         this.methodName = methodName;
     }
 
-    public Map<String, String> getParameters() {
+    public Map<String, Object> getParameters() {
         return parameters;
     }
 
-    public void setParameters(Map<String, String> parameters) {
+    public void setParameters(Map<String, Object> parameters) {
         this.parameters = parameters;
     }
 }

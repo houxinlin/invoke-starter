@@ -30,12 +30,15 @@ repositories {
     mavenCentral()
     maven { url = uri("https://repo.spring.io/milestone") }
     maven { url = uri("https://repo.spring.io/snapshot") }
+
 }
 
 dependencies {
     compileOnly("org.springframework.boot:spring-boot-starter-web")
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    implementation("commons-beanutils:commons-beanutils:1.9.4")
+
     compileOnly("jakarta.servlet:jakarta.servlet-api:6.0.0")
     compileOnly("javax.servlet:javax.servlet-api:4.0.1")
     compileOnly ("com.fasterxml.jackson.core:jackson-databind:2.12.5")// 使用你需要的版本
