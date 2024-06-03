@@ -34,6 +34,7 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
         knownClass.put("double", double.class);
         knownClass.put("float", float.class);
         knownClass.put("boolean", boolean.class);
+        knownClass.put("java.lang.String", String.class);
     }
 
     @Override
@@ -48,6 +49,7 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
                 if (knownClass.containsKey(stringParameter)) {
                     parameterClassTypes[i] = knownClass.get(stringParameter);
                 } else {
+                    //在这里判断是数据或者集合
                     Class<?> aClass = Class.forName(stringParameter, false, ClassLoader.getSystemClassLoader());
                     parameterClassTypes[i] = aClass;
                 }
