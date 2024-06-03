@@ -1,6 +1,7 @@
 package com.cool.request.components;
 
 import com.cool.request.CoolRequestProjectLog;
+import com.cool.request.components.method.MethodComponentSupport;
 import com.cool.request.components.spring.controller.EnabledSpringMvcRequestMapping;
 import com.cool.request.components.spring.gateway.EnabledSpringGateway;
 import com.cool.request.components.xxljob.XxlJobComponentSupport;
@@ -40,6 +41,7 @@ public class ComponentLoader implements
         componentLoaders.add(new EnabledSpringMvcRequestMapping());
         componentLoaders.add(new EnabledSpringGateway());
         componentLoaders.add(new XxlJobComponentSupport());
+        componentLoaders.add(new MethodComponentSupport());
     }
 
     @Override

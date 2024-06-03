@@ -4,6 +4,8 @@ import com.cool.request.components.ComponentListener;
 import com.cool.request.components.ComponentLoader;
 import com.cool.request.components.http.ReflexHttpRequestParamAdapterBody;
 import com.cool.request.components.http.response.InvokeResponseModel;
+import com.cool.request.components.method.MethodComponentListener;
+import com.cool.request.components.method.RMICallMethod;
 import com.cool.request.components.scheduled.ScheduledListener;
 import com.cool.request.components.spring.controller.ControllerInvokeListener;
 
@@ -15,6 +17,17 @@ public class CoolRequestStarterRMIImpl extends UnicastRemoteObject implements IC
 
     public CoolRequestStarterRMIImpl(ComponentLoader componentLoader) throws RemoteException {
         this.componentLoader = componentLoader;
+    }
+
+    @Override
+    public String invokeMethod(RMICallMethod rmiCallMethod) throws RemoteException {
+        for (ComponentListener componentListener : componentLoader.getComponentListeners()) {
+            if (componentListener instanceof MethodComponentListener) {
+                return ((MethodComponentListener) componentListener)
+                        .invokeMethod(rmiCallMethod);
+            }
+        }
+        return null;
     }
 
     @Override
