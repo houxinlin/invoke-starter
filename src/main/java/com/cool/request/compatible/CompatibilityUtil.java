@@ -26,7 +26,7 @@ public class CompatibilityUtil {
         }
     }
 
-    private static Class<?> loadHttpServletRequestClass() {
+    public static Class<?> loadHttpServletRequestClass() {
         try {
             if (VersionUtils.isSpringBoot3Dot0()) {
                 return Class.forName("jakarta.servlet.http.HttpServletRequest");
@@ -37,7 +37,7 @@ public class CompatibilityUtil {
         }
     }
 
-    private static Class<?> loadHttpServletResponse() {
+    public static Class<?> loadHttpServletResponse() {
         try {
             if (VersionUtils.isSpringBoot3Dot0()) {
                 return Class.forName("jakarta.servlet.http.HttpServletResponse");

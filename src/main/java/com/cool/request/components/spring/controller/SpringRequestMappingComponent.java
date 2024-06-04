@@ -113,8 +113,7 @@ public class SpringRequestMappingComponent implements
             Throwable {
         MockClassLoader mockClassLoader = MockClassLoader.newMockClassLoader();
         Class<?> aClass = mockClassLoader.loadClass("com.cool.request.components.spring.controller.Dispatcher");
-        Object dispatcher = aClass.getDeclaredConstructor(ApplicationContext.class, SpringRequestMappingComponent.class)
-                .newInstance(applicationContext, this);
+        Object dispatcher = aClass.getDeclaredConstructor(ApplicationContext.class).newInstance(applicationContext);
         MethodType methodType = MethodType.methodType(InvokeResponseModel.class, ReflexHttpRequestParamAdapterBody.class, int.class);
         MethodHandle handle = MethodHandles.lookup().findVirtual(aClass, "invokeController", methodType);
         Object invoke = handle.invoke(dispatcher, reflexHttpRequestParamAdapterBody, getServerPort(applicationContext));

@@ -5,8 +5,8 @@ import com.cool.request.components.method.MethodComponentSupport;
 import com.cool.request.components.spring.controller.EnabledSpringMvcRequestMapping;
 import com.cool.request.components.spring.gateway.EnabledSpringGateway;
 import com.cool.request.components.xxljob.XxlJobComponentSupport;
+import com.cool.request.json.GsonMapper;
 import com.cool.request.json.JsonMapper;
-import com.cool.request.json.JsonMapperFactory;
 import com.cool.request.rmi.plugin.ICoolRequestPluginRMI;
 import com.cool.request.rmi.starter.CoolRequestStarterRMIImpl;
 import com.cool.request.rmi.starter.ICoolRequestStarterRMI;
@@ -79,14 +79,8 @@ public class ComponentLoader implements
                 registry = LocateRegistry.getRegistry("localhost", Integer.valueOf(port));
                 Remote lookup = registry.lookup(ICoolRequestPluginRMI.class.getName());
                 coolRequestPluginRMI = (ICoolRequestPluginRMI) lookup;
-
-                String json = applicationContext.getEnvironment().getProperty("cool.request.plugin.json");
                 int availableTcpPort = SocketUtils.findAvailableTcpPort();
-
-                JsonMapper jsonMapper = JsonMapperFactory.getJsonMapper(json);
-                if (jsonMapper == null) {
-                    CoolRequestProjectLog.log("无法找到JSON解析库");
-                }
+                JsonMapper jsonMapper = new GsonMapper();
                 SpringBootStartInfo springBootStartInfo = new SpringBootStartInfo();
                 springBootStartInfo.setAvailableTcpPort(availableTcpPort);
                 springBootStartInfo.setJsonMapper(jsonMapper);
