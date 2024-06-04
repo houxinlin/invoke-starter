@@ -8,8 +8,14 @@ import java.util.Base64;
 import java.util.Map;
 
 public class GsonMapper implements JsonMapper {
-    private final Gson gson = new GsonBuilder().registerTypeHierarchyAdapter(byte[].class,
-            new ByteArrayToBase64TypeAdapter()).create();
+    private final Gson gson = new GsonBuilder()
+            .serializeNulls()
+            .serializeNulls()
+            .disableHtmlEscaping()
+            .setPrettyPrinting()
+            .registerTypeHierarchyAdapter(byte[].class,
+                    new ByteArrayToBase64TypeAdapter()).create();
+
     @Override
     public Map<String, Object> toMap(String json) {
         Type type = new TypeToken<Map<String, Object>>() {

@@ -1,19 +1,23 @@
 package com.cool.request.components.method.parameter;
 
+import com.cool.request.MockClassLoader;
 import com.cool.request.compatible.CompatibilityUtil;
 import com.cool.request.components.method.ParameterConverter;
 import com.cool.request.utils.DateTimeUtils;
 import org.apache.commons.beanutils.ConvertUtilsBean;
 import org.apache.commons.beanutils.Converter;
-import org.springframework.mock.web.MockHttpServletRequest;
-import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.web.multipart.MultipartFile;
 
+import java.io.IOException;
 import java.lang.reflect.Array;
 import java.lang.reflect.Method;
 import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.time.LocalDate;
@@ -41,7 +45,11 @@ public class ParameterConverters {
 
         @Override
         public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) throws ParseException {
-            return new MockHttpServletRequest();
+            try {
+                return MockClassLoader.newMockClassLoader().loadClass("org.springframework.mock.web.MockHttpServletRequest").newInstance();
+            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ignored) {
+            }
+            return null;
         }
     }
 
@@ -53,7 +61,11 @@ public class ParameterConverters {
 
         @Override
         public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) throws ParseException {
-            return new MockHttpServletResponse();
+            try {
+                return MockClassLoader.newMockClassLoader().loadClass("org.springframework.mock.web.MockHttpServletResponse").newInstance();
+            } catch (ClassNotFoundException | InstantiationException | IllegalAccessException ignored) {
+            }
+            return null;
         }
     }
 
@@ -103,6 +115,42 @@ public class ParameterConverters {
         }
     }
 
+    private static String probeContentType(Path path) {
+        if (Files.isDirectory(path)) return "";
+        try {
+            return Files.probeContentType(path);
+        } catch (IOException ignored) {
+        }
+        return "application/stream";
+    }
+
+    public static class MultipartFileParameterConverter implements Converter {
+        @Override
+        public <T> T convert(Class<T> aClass, Object o) {
+            if (o instanceof String) {
+                String path = o.toString();
+                Path localPath = Paths.get(path);
+                if (Files.exists(localPath)) {
+                    try {
+                        String name = "coolrequest";
+                        byte[] value = Files.readAllBytes(localPath);
+                        try {
+                            String fileName = localPath.toFile().getName();
+                            return (T) MockClassLoader.newMockClassLoader().
+                                    loadClass("org.springframework.mock.web.MockMultipartFile")
+                                    .getConstructor(String.class,String.class,String.class,byte[].class)
+                                    .newInstance("coolrequest", fileName, probeContentType(localPath), value);
+                        } catch (Exception  ignored) {
+                        }
+
+                    } catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+            return null;
+        }
+    }
 
     public static class PrimitiveParameterConverter implements ParameterConverter {
         private final ConvertUtilsBean convertUtilsBean = new ConvertUtilsBean();
@@ -115,6 +163,7 @@ public class ParameterConverters {
             convertUtilsBean.register(new LocalDateTimeParameterConverter(), LocalDateTime.class);
             convertUtilsBean.register(new LocalDateParameterConverter(), LocalDate.class);
             convertUtilsBean.register(new URIParameterConverter(), URI.class);
+            convertUtilsBean.register(new MultipartFileParameterConverter(), MultipartFile.class);
             convertUtilsBean.register(new Converter() {
                 @Override
                 public <T> T convert(Class<T> aClass, Object o) {
