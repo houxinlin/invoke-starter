@@ -35,6 +35,7 @@ repositories {
 }
 
 tasks.shadowJar {
+    append("/spring-test-4.0.0.jar")
     archiveFileName.set("spring-invoke-starter.jar")
     mergeServiceFiles()
     relocate("org.apache.commons.beanutils", "com.cool.request.starter.lib.net.commons.beanutils")

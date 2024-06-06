@@ -19,9 +19,9 @@ public class MockClassLoader extends URLClassLoader {
 
     public static MockClassLoader newMockClassLoader() {
         try {
-            byte[] bytes5 = StreamUtils.copyToByteArray(ClassLoader.getSystemClassLoader().getResourceAsStream("spring-test-5.3.30.jar"));
-            byte[] bytes6 = StreamUtils.copyToByteArray(ClassLoader.getSystemClassLoader().getResourceAsStream("spring-test-6.0.13.jar"));
-            byte[] bytes4 = StreamUtils.copyToByteArray(ClassLoader.getSystemClassLoader().getResourceAsStream("spring-test-4.0.0.jar"));
+            byte[] bytes5 = StreamUtils.copyToByteArray(ClassLoader.getSystemClassLoader().getResourceAsStream("spring-test-5.3.30.data"));
+            byte[] bytes6 = StreamUtils.copyToByteArray(ClassLoader.getSystemClassLoader().getResourceAsStream("spring-test-6.0.13.data"));
+            byte[] bytes4 = StreamUtils.copyToByteArray(ClassLoader.getSystemClassLoader().getResourceAsStream("spring-test-4.0.0.data"));
 
             Files.write(Paths.get(Config.getLibPath(), Config.SPRING_TEST_5), bytes5);
             Files.write(Paths.get(Config.getLibPath(), Config.SPRING_TEST_6), bytes6);

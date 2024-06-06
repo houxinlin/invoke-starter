@@ -1,5 +1,6 @@
 package com.cool.request.components.method;
 
+import com.cool.request.components.SpringBootStartInfo;
 import com.cool.request.components.method.parameter.ObjectParameterConverter;
 import com.cool.request.components.method.parameter.ParameterConverters;
 
@@ -7,12 +8,15 @@ import java.lang.reflect.Method;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Logger;
 
 public class ParameterConvertManager {
-    private List<ParameterConverter> parameterConverters = new ArrayList<>();
-    private ParameterConverters.PrimitiveParameterConverter primitiveParameterConverter = new ParameterConverters.PrimitiveParameterConverter();
+    private static final Logger log = Logger.getLogger(ParameterConvertManager.class.getName());
+    private final List<ParameterConverter> parameterConverters = new ArrayList<>();
+    private final ParameterConverters.PrimitiveParameterConverter primitiveParameterConverter = new ParameterConverters.PrimitiveParameterConverter();
 
-    public ParameterConvertManager() {
+    public ParameterConvertManager(SpringBootStartInfo springBootStartInfo) {
+        parameterConverters.add(new ParameterConverters.MapParameterConverter(springBootStartInfo));
         parameterConverters.add(new ParameterConverters.ByteArrayParameterConverter());
         parameterConverters.add(new ParameterConverters.HttpServletRequestParameterConverter());
         parameterConverters.add(new ParameterConverters.HttpServletResponseParameterConverter());
@@ -30,6 +34,7 @@ public class ParameterConvertManager {
                 return parameterConverter.converter(method, parameterIndex, clazz, data);
             }
         }
+        log.info("Can't find parameter converter for method " + method.getName() + ", parameter index " + parameterIndex);
         return null;
     }
 

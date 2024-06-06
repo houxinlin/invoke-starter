@@ -2,7 +2,9 @@ package com.cool.request.components.method.parameter;
 
 import com.cool.request.MockClassLoader;
 import com.cool.request.compatible.CompatibilityUtil;
+import com.cool.request.components.SpringBootStartInfo;
 import com.cool.request.components.method.ParameterConverter;
+import com.cool.request.json.JsonException;
 import com.cool.request.utils.DateTimeUtils;
 import org.apache.commons.beanutils.ConvertUtilsBean;
 import org.apache.commons.beanutils.Converter;
@@ -25,7 +27,32 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 public class ParameterConverters {
+    public static class MapParameterConverter implements ParameterConverter {
+        private SpringBootStartInfo springBootStartInfo;
+
+        public MapParameterConverter(SpringBootStartInfo springBootStartInfo) {
+            this.springBootStartInfo = springBootStartInfo;
+        }
+
+        @Override
+        public boolean canSupport(Method method, int parameterIndex, Class<?> parameterClass, Object value) {
+            return Map.class.isAssignableFrom(parameterClass);
+        }
+
+        @Override
+        public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) throws ParseException {
+            if (data instanceof Map) return data;
+            if (data == null) return new HashMap<>();
+            try {
+                return this.springBootStartInfo.getJsonMapper().toMap(data.toString());
+            } catch (JsonException ignored) {
+            }
+            return new HashMap<>();
+        }
+    }
+
     public static class ByteArrayParameterConverter implements ParameterConverter {
+
         @Override
         public boolean canSupport(Method method, int parameterIndex, Class<?> parameterClass, Object value) {
             return byte[].class.equals(parameterClass);
@@ -138,9 +165,9 @@ public class ParameterConverters {
                             String fileName = localPath.toFile().getName();
                             return (T) MockClassLoader.newMockClassLoader().
                                     loadClass("org.springframework.mock.web.MockMultipartFile")
-                                    .getConstructor(String.class,String.class,String.class,byte[].class)
+                                    .getConstructor(String.class, String.class, String.class, byte[].class)
                                     .newInstance("coolrequest", fileName, probeContentType(localPath), value);
-                        } catch (Exception  ignored) {
+                        } catch (Exception ignored) {
                         }
 
                     } catch (Exception e) {
