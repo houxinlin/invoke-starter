@@ -16,8 +16,6 @@ import org.springframework.web.server.ServerWebExchange;
 import java.lang.reflect.Field;
 import java.rmi.RemoteException;
 import java.util.List;
-import java.util.concurrent.ScheduledThreadPoolExecutor;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -33,7 +31,7 @@ public class SpringGatewayComponent implements ComponentDataHandler {
 
     @Override
     public void componentInit(ApplicationContext applicationContext) {
-        new Thread(() -> doPush()).start();
+        new Thread(this::doPush).start();
     }
 
     private void doPush() throws BeansException {

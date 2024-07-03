@@ -14,6 +14,7 @@ public class EnabledSpringGateway implements ComponentSupport {
     @Override
     public boolean canSupport(ApplicationContext applicationContext) {
         try {
+            Class.forName("org.springframework.cloud.gateway.route.RouteLocator");
             Class.forName("org.springframework.boot.web.reactive.context.ReactiveWebApplicationContext");
             Class<?> aClass = Class.forName("com.cool.request.components.spring.gateway.ReactiveWebApplicationContextCheck");
             MethodType methodType = MethodType.methodType(boolean.class, ApplicationContext.class);
