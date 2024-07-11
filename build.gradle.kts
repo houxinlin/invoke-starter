@@ -50,7 +50,7 @@ dependencies {
     annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
     compileOnly("org.springframework.boot:spring-boot-starter-test")
     implementation("commons-beanutils:commons-beanutils:1.9.4")
-    implementation("com.google.code.gson:gson:2.7")
+    implementation("com.google.code.gson:gson:2.8.9")
 
     compileOnly("jakarta.servlet:jakarta.servlet-api:6.0.0")
     compileOnly("javax.servlet:javax.servlet-api:4.0.1")

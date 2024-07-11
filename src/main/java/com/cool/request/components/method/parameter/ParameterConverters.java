@@ -51,6 +51,18 @@ public class ParameterConverters {
         }
     }
 
+    public static class EnumParameterConverter implements ParameterConverter {
+        @Override
+        public boolean canSupport(Method method, int parameterIndex, Class<?> parameterClass, Object value) {
+            return parameterClass.isEnum();
+        }
+
+        @Override
+        public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) throws ParseException {
+            return Enum.valueOf((Class<Enum>) parameterClass, data.toString());
+        }
+    }
+
     public static class ByteArrayParameterConverter implements ParameterConverter {
 
         @Override
@@ -127,7 +139,7 @@ public class ParameterConverters {
                     "yyyy MM dd");
             for (String format : list) {
                 try {
-                    return aClass.cast(DateTimeUtils.toLocalDateTime(data.toString(), format));
+                    return aClass.cast(DateTimeUtils.toLocalDate(data.toString(), format));
                 } catch (Exception ignored) {
                 }
             }

@@ -16,6 +16,7 @@ public class ParameterConvertManager {
     private final ParameterConverters.PrimitiveParameterConverter primitiveParameterConverter = new ParameterConverters.PrimitiveParameterConverter();
 
     public ParameterConvertManager(SpringBootStartInfo springBootStartInfo) {
+        parameterConverters.add(new ParameterConverters.EnumParameterConverter());
         parameterConverters.add(new ParameterConverters.MapParameterConverter(springBootStartInfo));
         parameterConverters.add(new ParameterConverters.ByteArrayParameterConverter());
         parameterConverters.add(new ParameterConverters.HttpServletRequestParameterConverter());

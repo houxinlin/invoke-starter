@@ -6,9 +6,13 @@ import com.cool.request.components.method.RMICallMethod;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
+import java.util.List;
 
 public interface ICoolRequestStarterRMI extends Remote {
-    public String invokeMethod(RMICallMethod rmiCallMethod) throws RemoteException;
+    public List<Integer> getHasCode(RMICallMethod rmiCallMethod) throws RemoteException;
+
+    public boolean ping() throws RemoteException;
+    public CallResult invokeMethod(RMICallMethod rmiCallMethod, int hasCode) throws RemoteException;
 
     public InvokeResponseModel invokeController(
             ReflexHttpRequestParamAdapterBody reflexHttpRequestParamAdapterBody)

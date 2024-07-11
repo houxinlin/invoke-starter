@@ -11,6 +11,8 @@ import com.cool.request.components.spring.controller.ControllerInvokeListener;
 
 import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
+import java.util.List;
 
 public class CoolRequestStarterRMIImpl extends UnicastRemoteObject implements ICoolRequestStarterRMI {
     private final ComponentLoader componentLoader;
@@ -20,11 +22,27 @@ public class CoolRequestStarterRMIImpl extends UnicastRemoteObject implements IC
     }
 
     @Override
-    public String invokeMethod(RMICallMethod rmiCallMethod) throws RemoteException {
+    public boolean ping() throws RemoteException {
+        return true;
+    }
+
+    @Override
+    public List<Integer> getHasCode(RMICallMethod rmiCallMethod) throws RemoteException {
         for (ComponentListener componentListener : componentLoader.getComponentListeners()) {
             if (componentListener instanceof MethodComponentListener) {
                 return ((MethodComponentListener) componentListener)
-                        .invokeMethod(rmiCallMethod);
+                        .getHasCode(rmiCallMethod);
+            }
+        }
+        return new ArrayList<>();
+    }
+
+    @Override
+    public CallResult invokeMethod(RMICallMethod rmiCallMethod, int hasCode) throws RemoteException {
+        for (ComponentListener componentListener : componentLoader.getComponentListeners()) {
+            if (componentListener instanceof MethodComponentListener) {
+                return ((MethodComponentListener) componentListener)
+                        .invokeMethod(rmiCallMethod, hasCode);
             }
         }
         return null;
