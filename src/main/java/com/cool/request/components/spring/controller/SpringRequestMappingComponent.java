@@ -5,7 +5,6 @@ import com.cool.request.MockClassLoader;
 import com.cool.request.ScheduledEndpoint;
 import com.cool.request.components.ComponentDataHandler;
 import com.cool.request.components.SpringBootStartInfo;
-import com.cool.request.components.http.Controller;
 import com.cool.request.components.http.DynamicController;
 import com.cool.request.components.http.ExceptionInvokeResponseModel;
 import com.cool.request.components.http.ReflexHttpRequestParamAdapterBody;
@@ -14,7 +13,6 @@ import com.cool.request.components.scheduled.DynamicSpringScheduled;
 import com.cool.request.components.scheduled.ScheduledListener;
 import com.cool.request.json.JsonMapper;
 import com.cool.request.utils.AnnotationUtilsAdapter;
-import com.cool.request.utils.VersionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.framework.AopProxyUtils;
@@ -24,25 +22,16 @@ import org.springframework.core.annotation.AnnotatedElementUtils;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.scheduling.annotation.Schedules;
 import org.springframework.util.ReflectionUtils;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.method.HandlerMethod;
-import org.springframework.web.servlet.mvc.condition.PathPatternsRequestCondition;
-import org.springframework.web.servlet.mvc.condition.PatternsRequestCondition;
-import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
-import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
 import java.lang.reflect.Method;
-import java.rmi.RemoteException;
 import java.util.*;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
-import static com.cool.request.utils.SpringUtils.getContextPath;
 import static com.cool.request.utils.SpringUtils.getServerPort;
 
 
@@ -58,13 +47,15 @@ public class SpringRequestMappingComponent implements
     public static JsonMapper jsonMapper;
     private boolean refreshing = false;
 
-    private Set<DynamicController> controllerCache = new HashSet<>();
+    private List<ControllerCollector> controllerCollectors = new ArrayList<>();
 
     public SpringRequestMappingComponent(ApplicationContext applicationContext,
                                          SpringBootStartInfo springBootStartInfo) {
         this.applicationContext = applicationContext;
         this.springBootStartInfo = springBootStartInfo;
 
+        controllerCollectors.add(new RequestMappingCollector());
+        controllerCollectors.add(new WebMvcEndpointHandlerMappingCollector());
         jsonMapper = springBootStartInfo.getJsonMapper();
 
     }
@@ -125,77 +116,6 @@ public class SpringRequestMappingComponent implements
         throw new IllegalArgumentException("arg error");
     }
 
-    private boolean hasMethod(Class<?> targetClass, String methodName, Class<?> retClass, Class<?>... ptypes) {
-        try {
-            MethodHandles.lookup().findVirtual(targetClass, methodName, MethodType.methodType(retClass, ptypes));
-            return true;
-        } catch (NoSuchMethodException | IllegalAccessException ignored) {
-        }
-        return false;
-
-    }
-
-    private Set<String> getUrlPattern(RequestMappingInfo requestMappingInfo) {
-        try {
-            if (hasMethod(requestMappingInfo.getClass(), "getPatternValues", Set.class)) {
-                return Optional.of(requestMappingInfo.getPatternValues()).orElse(new HashSet<>());
-            }
-            PatternsRequestCondition patternsCondition = requestMappingInfo.getPatternsCondition();
-            if (patternsCondition != null) {
-                return patternsCondition.getPatterns();
-            }
-            PathPatternsRequestCondition pathPatternsCondition = requestMappingInfo.getPathPatternsCondition();
-            if (pathPatternsCondition != null) {
-                return pathPatternsCondition.getPatternValues();
-            }
-        } catch (Exception ignored) {
-        }
-        return new HashSet<>();
-    }
-
-    private List<String> getParamClassList(HandlerMethod handlerMethod) {
-        try {
-            if (VersionUtils.isSpring5()) {
-                return Arrays.stream(handlerMethod.getMethodParameters())
-                        .map(methodParameter -> methodParameter.getParameter().getType().getName()).collect(Collectors.toList());
-            }
-        } catch (Exception e) {
-            CoolRequestProjectLog.logWithDebug(e);
-        }
-        return Arrays.stream(handlerMethod.getMethod().getParameterTypes()).map(Class::getSimpleName).collect(Collectors.toList());
-    }
-
-    private List<DynamicController> collectorRequestMapping() {
-        int serverPort = getServerPort(applicationContext);
-        List<DynamicController> result = new ArrayList<>();
-        Map<String, RequestMappingHandlerMapping> beansOfType = applicationContext.getBeansOfType(RequestMappingHandlerMapping.class);
-        String contextPath = getContextPath(applicationContext);
-        for (RequestMappingHandlerMapping requestMappingHandlerMapping : beansOfType.values()) {
-            Map<RequestMappingInfo, HandlerMethod> handlerMethods = requestMappingHandlerMapping.getHandlerMethods();
-            for (RequestMappingInfo requestMappingInfo : handlerMethods.keySet()) {
-                HandlerMethod handlerMethod = handlerMethods.get(requestMappingInfo);
-                for (String url : getUrlPattern(requestMappingInfo)) {
-                    RequestMethod requestMethod = requestMappingInfo.getMethodsCondition().getMethods().stream().findFirst().orElse(RequestMethod.GET);
-
-                    DynamicController dynamicController = (DynamicController) Controller.ControllerBuilder
-                            .aController()
-                            .withContextPath(contextPath)
-                            .withHttpMethod(requestMethod.name())
-                            .withMethodName(handlerMethod.getMethod().getName())
-                            .withUrl(url)
-                            .withServerPort(serverPort)
-                            .withSimpleClassName(handlerMethod.getBeanType().getName())
-                            .build(new DynamicController());
-                    dynamicController.setParamClassList(getParamClassList(handlerMethod));
-                    dynamicController.setSpringBootStartPort(springBootStartInfo.getAvailableTcpPort());
-                    result.add(dynamicController);
-                    controllerCache.add(dynamicController);
-                }
-            }
-        }
-        return result;
-
-    }
 
     @Override
     public void componentInit(ApplicationContext applicationContext) {
@@ -205,9 +125,18 @@ public class SpringRequestMappingComponent implements
     private void doRefresh(boolean ignoreSize) {
         CoolRequestProjectLog.log("MVC推送数据");
         try {
-            List<DynamicController> controllers = collectorRequestMapping();
+            List<DynamicController> dynamicControllers = new ArrayList<>();
+            for (ControllerCollector controllerCollector : controllerCollectors) {
+                try {
+                    List<DynamicController> collect = controllerCollector.collect(applicationContext, springBootStartInfo);
+                    if (collect != null) {
+                        dynamicControllers.addAll(collect);
+                    }
+                } catch (Exception ignored) {
+                }
+            }
             springBootStartInfo.getCoolRequestPluginRMI()
-                    .loadController(controllers);
+                    .loadController(dynamicControllers);
         } catch (Exception e) {
             CoolRequestProjectLog.log(e.getMessage());
         }
