@@ -118,7 +118,6 @@ public class ComponentLoader implements
                 }
 
             } catch (Exception e) {
-                e.printStackTrace();
             }
         }
     }

@@ -10,7 +10,6 @@ import org.springframework.util.ReflectionUtils;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
-import java.rmi.RemoteException;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -48,24 +47,36 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
         }
     }
 
-    @Override
-    public List<Integer> getHasCode(RMICallMethod rmiCallMethod) throws RemoteException {
-        try {
-            Class<?> clazz = Class.forName(rmiCallMethod.getClassName(), false, ClassLoader.getSystemClassLoader());
-            try {
-                Map<String, ?> beansOfType = applicationContext.getBeansOfType(clazz);
-                if (beansOfType.isEmpty())
-                    return new ArrayList<>();
-                List<Integer> result = new ArrayList<>();
-                for (Object value : beansOfType.values()) {
-                    result.add((value.hashCode()));
-                }
-                return result;
-            } catch (Exception ignored) {
-            }
-
-        } catch (ClassNotFoundException ignored) {
+    private Class<?> getClassFromClassLoader(RMICallMethod rmiCallMethod) throws ClassNotFoundException {
+        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        if (contextClassLoader == null) {
+            return Class.forName(rmiCallMethod.getClassName());
         }
+        return Class.forName(rmiCallMethod.getClassName(), false, contextClassLoader);
+    }
+
+    private ClassLoader getClassLoader() {
+        ClassLoader contextClassLoader = Thread.currentThread().getContextClassLoader();
+        if (contextClassLoader == null) {
+            return ClassLoader.getSystemClassLoader();
+        }
+        return contextClassLoader;
+    }
+
+    @Override
+    public List<Integer> getHasCode(RMICallMethod rmiCallMethod) {
+        try {
+            Map<String, ?> beansOfType = applicationContext.getBeansOfType(getClassFromClassLoader(rmiCallMethod));
+            if (beansOfType.isEmpty())
+                return new ArrayList<>();
+            List<Integer> result = new ArrayList<>();
+            for (Object value : beansOfType.values()) {
+                result.add((value.hashCode()));
+            }
+            return result;
+        } catch (Exception ignored) {
+        }
+
         return Collections.emptyList();
     }
 
@@ -74,7 +85,7 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
         LOGGER.info("args:" + rmiCallMethod.getParameters());
         Class<?> clazz = null;
         try {
-            clazz = Class.forName(rmiCallMethod.getClassName(), false, ClassLoader.getSystemClassLoader());
+            clazz = getClassFromClassLoader(rmiCallMethod);
         } catch (Exception e) {
             return new CallResult(false, false, e.getMessage());
         }
@@ -86,7 +97,7 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
             if (knownClass.containsKey(stringParameter)) {
                 parameterClassTypes[i] = knownClass.get(stringParameter);
             } else {
-                Class<?> aClass = Class.forName(stringParameter, false, ClassLoader.getSystemClassLoader());
+                Class<?> aClass = Class.forName(stringParameter, false, getClassLoader());
                 parameterClassTypes[i] = aClass;
             }
         }
