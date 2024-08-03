@@ -61,6 +61,8 @@ dependencies {
     }
     compileOnly("com.xuxueli:xxl-job-core:2.4.0")
 
+    compileOnly("org.springframework.boot:spring-boot-starter-actuator")
+
 }
 dependencyManagement {
     imports {
