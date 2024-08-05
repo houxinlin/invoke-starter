@@ -2,6 +2,8 @@ package com.cool.request.utils;
 
 import org.springframework.context.ApplicationContext;
 
+import java.nio.file.Paths;
+
 public class SpringUtils {
     public static int getServerPort(ApplicationContext applicationContext) {
         String port = applicationContext.getEnvironment().getProperty("server.port");
@@ -11,7 +13,11 @@ public class SpringUtils {
 
     public static String getContextPath(ApplicationContext applicationContext) {
         String contextPath = applicationContext.getEnvironment().getProperty("server.servlet.context-path");
-        if (contextPath == null) return "";
-        return contextPath;
+        String servletPath = applicationContext.getEnvironment().getProperty("spring.mvc.servlet.path");
+        if (contextPath == null && servletPath == null) return "";
+
+        if (servletPath == null) return contextPath;
+        if (contextPath == null) return servletPath;
+        return Paths.get("/", contextPath, servletPath).toString();
     }
 }
