@@ -7,6 +7,7 @@ import com.cool.request.utils.exception.ObjectNotFound;
 import org.springframework.context.ApplicationContext;
 import org.springframework.util.ReflectionUtils;
 
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
@@ -38,9 +39,9 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
     }
 
     @Override
-    public CallResult invokeMethod(RMICallMethod rmiCallMethod, int hasCode) {
+    public CallResult invokeMethod(RMICallMethod rmiCallMethod, int hasCode, byte[] code) {
         try {
-            return doInvoke(rmiCallMethod, hasCode);
+            return doInvoke(rmiCallMethod, hasCode, code);
         } catch (Exception e) {
             e.printStackTrace();
             return new CallResult(true, true, e.getMessage());
@@ -80,9 +81,38 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
         return Collections.emptyList();
     }
 
-    private CallResult doInvoke(RMICallMethod rmiCallMethod, int hasCode) throws Exception {
+    private void invokeCallMethod(Object callMethodScriptObject, String methodName) {
+        try {
+            Method beforeCallMethod = callMethodScriptObject.getClass().getMethod(methodName, ApplicationContext.class);
+            beforeCallMethod.invoke(callMethodScriptObject, applicationContext);
+        } catch (NoSuchMethodException ignored) {
+        } catch (InvocationTargetException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private Object invokeParameterProcessor(Object callMethodScriptObject, Parameter parameter, int index, Object value) {
+        try {
+            Method beforeCallMethod = callMethodScriptObject.getClass()
+                    .getMethod("parameterProcessor", ApplicationContext.class, Parameter.class, int.class, Object.class);
+            return beforeCallMethod.invoke(callMethodScriptObject, applicationContext, parameter, index, value);
+        } catch (NoSuchMethodException ignored) {
+        } catch (InvocationTargetException | IllegalAccessException e) {
+            throw new RuntimeException(e);
+        }
+        return value;
+    }
+
+    private CallResult doInvoke(RMICallMethod rmiCallMethod, int hasCode, byte[] scriptCode) throws Exception {
         LOGGER.info("call:" + rmiCallMethod.getClassName() + "." + rmiCallMethod.getMethodName());
         LOGGER.info("args:" + rmiCallMethod.getParameters());
+        CallMethodClassLoader callMethodClassLoader;
+        Object callMethodScriptObject = null;
+        if (scriptCode != null) {
+            callMethodClassLoader = new CallMethodClassLoader(scriptCode);
+            Class<?> callMethodScriptClass = callMethodClassLoader.loadClass(CallMethodClassLoader.CLASS_NAME_METHOD_CALL);
+            callMethodScriptObject = callMethodScriptClass.newInstance();
+        }
         Class<?> clazz = null;
         try {
             clazz = getClassFromClassLoader(rmiCallMethod);
@@ -114,7 +144,11 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
             Object parameterStringValue = rmiCallMethod.getParameters().getOrDefault(String.valueOf(i), "");
             try {
                 Object convertValue = parameterConvertManager.getConvertValue(method, i, parameter.getType(), parameterStringValue);
-                parameterValue[i] = convertValue;
+                if (callMethodScriptObject != null) {
+                    parameterValue[i] = invokeParameterProcessor(callMethodScriptObject, parameter, i, convertValue);
+                } else {
+                    parameterValue[i] = convertValue;
+                }
             } catch (Exception e) {
                 String msg = "Cannot convert parameters:[" + parameterName + "] to type:" + parameter.getType();
                 throw new IllegalArgumentException(msg);
@@ -122,7 +156,14 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
         }
         try {
             Object object = getObject(method, hasCode);
-            return invoke(object, method, parameterValue);
+            if (callMethodScriptObject != null) {
+                invokeCallMethod(callMethodScriptObject, "beforeCall");
+            }
+            CallResult invoke = invoke(object, method, parameterValue);
+            if (callMethodScriptObject != null) {
+                invokeCallMethod(callMethodScriptObject, "afterCall");
+            }
+            return invoke;
         } catch (ObjectNotFound object) {
             return new CallResult(false, false, "");
         }

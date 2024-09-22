@@ -72,7 +72,7 @@ public class ComponentLoader implements
         @Override
         public void run() {
             //连接插件rmi
-            String port = System.getProperty("hxl.spring.invoke.port");
+            String port = System.getProperty("cool.request.port");
             Registry registry;
             ICoolRequestPluginRMI coolRequestPluginRMI;
             try {

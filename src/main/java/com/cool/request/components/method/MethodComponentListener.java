@@ -9,5 +9,5 @@ import java.util.List;
 public interface MethodComponentListener extends ComponentListener {
     public List<Integer> getHasCode(RMICallMethod rmiCallMethod) throws RemoteException;
 
-    public CallResult invokeMethod(RMICallMethod rmiCallMethod, int hasCode) throws RemoteException;
+    public CallResult invokeMethod(RMICallMethod rmiCallMethod, int hasCode, byte[] code) throws RemoteException;
 }

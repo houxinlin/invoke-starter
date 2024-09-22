@@ -12,7 +12,7 @@ public interface ICoolRequestStarterRMI extends Remote {
     public List<Integer> getHasCode(RMICallMethod rmiCallMethod) throws RemoteException;
 
     public boolean ping() throws RemoteException;
-    public CallResult invokeMethod(RMICallMethod rmiCallMethod, int hasCode) throws RemoteException;
+    public CallResult invokeMethod(RMICallMethod rmiCallMethod, int hasCode,byte[] code) throws RemoteException;
 
     public InvokeResponseModel invokeController(
             ReflexHttpRequestParamAdapterBody reflexHttpRequestParamAdapterBody)

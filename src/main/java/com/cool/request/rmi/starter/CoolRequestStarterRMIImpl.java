@@ -38,11 +38,11 @@ public class CoolRequestStarterRMIImpl extends UnicastRemoteObject implements IC
     }
 
     @Override
-    public CallResult invokeMethod(RMICallMethod rmiCallMethod, int hasCode) throws RemoteException {
+    public CallResult invokeMethod(RMICallMethod rmiCallMethod, int hasCode, byte[] code) throws RemoteException {
         for (ComponentListener componentListener : componentLoader.getComponentListeners()) {
             if (componentListener instanceof MethodComponentListener) {
                 return ((MethodComponentListener) componentListener)
-                        .invokeMethod(rmiCallMethod, hasCode);
+                        .invokeMethod(rmiCallMethod, hasCode, code);
             }
         }
         return null;
