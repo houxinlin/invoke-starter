@@ -93,27 +93,26 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
         return Collections.emptyList();
     }
 
-    private void invokeCallMethod(Object callMethodScriptObject, String methodName) {
+    private void invokeBeforeCallMethod(Object callMethodScriptObject, Method method, Map<Parameter, Object> parameterValueMap) {
         try {
-            Method beforeCallMethod = callMethodScriptObject.getClass().getMethod(methodName, ApplicationContext.class);
-            beforeCallMethod.invoke(callMethodScriptObject, applicationContext);
+            Method beforeCallMethod = callMethodScriptObject.getClass().getMethod("beforeCall", ApplicationContext.class, Method.class, Map.class);
+            beforeCallMethod.invoke(callMethodScriptObject, applicationContext, method, parameterValueMap);
         } catch (NoSuchMethodException ignored) {
         } catch (InvocationTargetException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
 
-    private Object invokeParameterProcessor(Object callMethodScriptObject, Parameter parameter, int index, Object value) {
+    private void invokeAfterCallMethod(Object callMethodScriptObject, Method method) {
         try {
-            Method beforeCallMethod = callMethodScriptObject.getClass()
-                    .getMethod("parameterProcessor", ApplicationContext.class, Parameter.class, int.class, Object.class);
-            return beforeCallMethod.invoke(callMethodScriptObject, applicationContext, parameter, index, value);
+            Method beforeCallMethod = callMethodScriptObject.getClass().getMethod("afterCall", ApplicationContext.class, Method.class);
+            beforeCallMethod.invoke(callMethodScriptObject, applicationContext, method);
         } catch (NoSuchMethodException ignored) {
         } catch (InvocationTargetException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
-        return value;
     }
+
 
     private CallResult doInvoke(RMICallMethod rmiCallMethod, int hasCode, byte[] scriptCode) throws Exception {
         LOGGER.info("call:" + rmiCallMethod.getClassName() + "." + rmiCallMethod.getMethodName());
@@ -148,7 +147,7 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
             String msg = "method not found:" + rmiCallMethod.getMethodName();
             throw new IllegalArgumentException(msg);
         }
-
+        Map<Parameter, Object> parameterValueMap = new HashMap<>();
         Parameter[] parameters = method.getParameters();
         for (int i = 0; i < parameters.length; i++) {
             Parameter parameter = parameters[i];
@@ -156,11 +155,8 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
             Object parameterStringValue = rmiCallMethod.getParameters().getOrDefault(String.valueOf(i), "");
             try {
                 Object convertValue = parameterConvertManager.getConvertValue(method, i, parameter.getType(), parameterStringValue);
-                if (callMethodScriptObject != null) {
-                    parameterValue[i] = invokeParameterProcessor(callMethodScriptObject, parameter, i, convertValue);
-                } else {
-                    parameterValue[i] = convertValue;
-                }
+                parameterValue[i] = convertValue;
+                parameterValueMap.put(parameter, convertValue);
             } catch (Exception e) {
                 String msg = "Cannot convert parameters:[" + parameterName + "] to type:" + parameter.getType();
                 throw new IllegalArgumentException(msg);
@@ -169,11 +165,15 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
         try {
             Object object = getObject(method, hasCode);
             if (callMethodScriptObject != null) {
-                invokeCallMethod(callMethodScriptObject, "beforeCall");
+                invokeBeforeCallMethod(callMethodScriptObject, method, parameterValueMap);
             }
-            CallResult invoke = invoke(object, method, parameterValue);
+            Object[] newParameterValue = new Object[parameterTypes.size()];
+            for (int i = 0; i < method.getParameters().length; i++) {
+                newParameterValue[i] = parameterValueMap.get(method.getParameters()[i]);
+            }
+            CallResult invoke = invoke(object, method, newParameterValue);
             if (callMethodScriptObject != null) {
-                invokeCallMethod(callMethodScriptObject, "afterCall");
+                invokeAfterCallMethod(callMethodScriptObject, method);
             }
             return invoke;
         } catch (ObjectNotFound object) {
