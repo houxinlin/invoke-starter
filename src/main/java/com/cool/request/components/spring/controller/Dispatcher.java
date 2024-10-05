@@ -252,7 +252,6 @@ public class Dispatcher {
                 CoolRequestProjectLog.log("无法找到mappedHandler：" + requestData.getUrl());
             }
         } catch (Exception e) {
-            CoolRequestProjectLog.logWithDebug(e);
             CoolRequestProjectLog.userExceptionLog(e);
             exception = e;
         } finally {

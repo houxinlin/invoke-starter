@@ -1,6 +1,5 @@
 package com.cool.request.components.spring.controller;
 
-import com.cool.request.CoolRequestProjectLog;
 import com.cool.request.components.SpringBootStartInfo;
 import com.cool.request.components.http.Controller;
 import com.cool.request.components.http.DynamicController;
@@ -65,8 +64,7 @@ public class RequestMappingCollector implements ControllerCollector {
                 return Arrays.stream(handlerMethod.getMethodParameters())
                         .map(methodParameter -> methodParameter.getParameter().getType().getName()).collect(Collectors.toList());
             }
-        } catch (Exception e) {
-            CoolRequestProjectLog.logWithDebug(e);
+        } catch (Exception ignored) {
         }
         return Arrays.stream(handlerMethod.getMethod().getParameterTypes()).map(Class::getSimpleName).collect(Collectors.toList());
     }

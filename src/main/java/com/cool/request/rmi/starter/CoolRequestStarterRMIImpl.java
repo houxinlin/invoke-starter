@@ -1,12 +1,12 @@
 package com.cool.request.rmi.starter;
 
+import com.cool.request.CoolRequestStarterApplication;
 import com.cool.request.components.ComponentListener;
 import com.cool.request.components.ComponentLoader;
 import com.cool.request.components.http.ReflexHttpRequestParamAdapterBody;
 import com.cool.request.components.http.response.InvokeResponseModel;
 import com.cool.request.components.method.MethodComponentListener;
 import com.cool.request.components.method.RMICallMethod;
-import com.cool.request.components.scheduled.ScheduledListener;
 import com.cool.request.components.spring.controller.ControllerInvokeListener;
 
 import java.rmi.RemoteException;
@@ -62,13 +62,21 @@ public class CoolRequestStarterRMIImpl extends UnicastRemoteObject implements IC
     }
 
     @Override
-    public boolean invokeScheduled(String className, String methodName, String param) throws RemoteException {
+    public void invokeTestMethod(String className, String methodName, String classRoot, String... methodClassName) throws RemoteException {
         for (ComponentListener componentListener : componentLoader.getComponentListeners()) {
-            if (componentListener instanceof ScheduledListener) {
-                ((ScheduledListener) componentListener)
-                        .invokeScheduled(className, methodName, param);
+            if (componentListener instanceof MethodComponentListener) {
+                ((MethodComponentListener) componentListener).invokeTestMethod(className, methodName, classRoot, methodClassName);
             }
         }
+    }
+
+    @Override
+    public String getSpringBootStartupMainClass() throws RemoteException {
+        return CoolRequestStarterApplication.getApplication().getMainApplicationClass().getName();
+    }
+
+    @Override
+    public boolean invokeScheduled(String className, String methodName, String param) throws RemoteException {
         return false;
     }
 }

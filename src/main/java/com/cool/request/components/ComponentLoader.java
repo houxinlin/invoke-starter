@@ -4,7 +4,6 @@ import com.cool.request.CoolRequestProjectLog;
 import com.cool.request.components.method.MethodComponentSupport;
 import com.cool.request.components.spring.controller.EnabledSpringMvcRequestMapping;
 import com.cool.request.components.spring.gateway.EnabledSpringGateway;
-import com.cool.request.components.xxljob.XxlJobComponentSupport;
 import com.cool.request.json.GsonMapper;
 import com.cool.request.json.JsonMapper;
 import com.cool.request.rmi.plugin.ICoolRequestPluginRMI;
@@ -40,7 +39,6 @@ public class ComponentLoader implements
     public ComponentLoader() {
         componentLoaders.add(new EnabledSpringMvcRequestMapping());
         componentLoaders.add(new EnabledSpringGateway());
-        componentLoaders.add(new XxlJobComponentSupport());
         componentLoaders.add(new MethodComponentSupport());
     }
 
@@ -86,16 +84,10 @@ public class ComponentLoader implements
                 springBootStartInfo.setJsonMapper(jsonMapper);
                 springBootStartInfo.setCoolRequestPluginRMI(coolRequestPluginRMI);
                 springBootStartInfo.setCoolRequestStarterRMI(createStarterRMI(availableTcpPort));
-
-                //发送项目启动
-                try {
-                    if (springBootStartInfo.getCoolRequestPluginRMI() != null) {
-                        springBootStartInfo.getCoolRequestPluginRMI().projectStartup(springBootStartInfo.getAvailableTcpPort(),
-                                getServerPort(applicationContext));
-                    }
-                } catch (RemoteException ignored) {
+                if (springBootStartInfo.getCoolRequestPluginRMI() != null) {
+                    springBootStartInfo.getCoolRequestPluginRMI().projectStartup(springBootStartInfo.getAvailableTcpPort(),
+                            getServerPort(applicationContext));
                 }
-
                 for (ComponentSupport componentLoader : componentLoaders) {
                     if (componentLoader.canSupport(applicationContext)) {
                         ComponentDataHandler componentDataHandler =
@@ -111,13 +103,11 @@ public class ComponentLoader implements
                     if (componentDataHandler != null) {
                         try {
                             componentDataHandler.componentInit(applicationContext);
-                        } catch (Exception e) {
-                            CoolRequestProjectLog.logWithDebug(e);
+                        } catch (Exception ignored) {
                         }
                     }
                 }
-
-            } catch (Exception e) {
+            } catch (Exception ignored) {
             }
         }
     }

@@ -2,16 +2,28 @@ package com.cool.request.components.method.parameter;
 
 import com.cool.request.components.method.ParameterConvertManager;
 import com.cool.request.components.method.ParameterConverter;
+import com.cool.request.utils.LocalDateTimeTypeAdapter;
+import com.cool.request.utils.LocalDateTypeAdapter;
+import com.cool.request.utils.LocalTimeTypeAdapter;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.google.gson.reflect.TypeToken;
 
 import java.lang.reflect.*;
 import java.text.ParseException;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 
 public class ObjectParameterConverter implements ParameterConverter {
     private ParameterConvertManager manager;
-
+    private static Gson gson = new GsonBuilder()
+            .setDateFormat("yyyy-MM-dd HH:mm:ss")
+            .registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
+            .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeTypeAdapter())
+            .registerTypeAdapter(LocalTime.class, new LocalTimeTypeAdapter())
+            .create();
     private List<ParameterConverter> parameterConverters = new ArrayList<>();
 
     public ObjectParameterConverter(ParameterConvertManager parameterConvertManager) {
@@ -90,7 +102,7 @@ public class ObjectParameterConverter implements ParameterConverter {
         @Override
         public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) throws ParseException {
             Class<?> componentTypeClass = parameterClass.getComponentType();
-            return new Gson().fromJson(data.toString(), Array.newInstance(componentTypeClass, 0).getClass());
+            return gson.fromJson(data.toString(), Array.newInstance(componentTypeClass, 0).getClass());
         }
     }
 
@@ -110,10 +122,10 @@ public class ObjectParameterConverter implements ParameterConverter {
                     ParameterizedType parameterizedType = (ParameterizedType) genericParameterType;
                     Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
                     Type type = TypeToken.getParameterized(parameterClass, actualTypeArguments).getType();
-                    return new Gson().fromJson(data.toString(), type);
+                    return gson.fromJson(data.toString(), type);
                 }
             }
-            return new Gson().fromJson(data.toString(), parameterClass);
+            return gson.fromJson(data.toString(), parameterClass);
         }
     }
 
@@ -128,7 +140,7 @@ public class ObjectParameterConverter implements ParameterConverter {
             if (data == null) return new HashMap<>();
             Type type = new TypeToken<Map<String, Object>>() {
             }.getType();
-            return new Gson().fromJson(new Gson().toJson(data), type);
+            return gson.fromJson(gson.toJson(data), type);
         }
     }
 
@@ -152,7 +164,7 @@ public class ObjectParameterConverter implements ParameterConverter {
                         try {
                             Class<?> aClass = Class.forName(genericParameter);
                             Type listType = TypeToken.getParameterized(Set.class, aClass).getType();
-                            return new Gson().fromJson(data.toString(), listType);
+                            return gson.fromJson(data.toString(), listType);
                         } catch (ClassNotFoundException e) {
                             throw new RuntimeException(e);
                         }
@@ -184,7 +196,7 @@ public class ObjectParameterConverter implements ParameterConverter {
                         try {
                             Class<?> aClass = Class.forName(genericParameter);
                             Type listType = TypeToken.getParameterized(List.class, aClass).getType();
-                            return new Gson().fromJson(data.toString(), listType);
+                            return gson.fromJson(data.toString(), listType);
                         } catch (ClassNotFoundException e) {
                             throw new RuntimeException(e);
                         }

@@ -1,2 +1,5 @@
 org.springframework.boot.autoconfigure.EnableAutoConfiguration=\
   com.cool.request.components.ComponentLoader
+
+org.springframework.boot.SpringApplicationRunListener=\
+    com.cool.request.CoolRequestStarterApplication

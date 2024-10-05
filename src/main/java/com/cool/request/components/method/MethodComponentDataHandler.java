@@ -4,13 +4,25 @@ import com.cool.request.components.ComponentDataHandler;
 import com.cool.request.components.SpringBootStartInfo;
 import com.cool.request.rmi.starter.CallResult;
 import com.cool.request.utils.exception.ObjectNotFound;
+import org.springframework.beans.BeansException;
+import org.springframework.beans.TypeConverter;
+import org.springframework.beans.factory.InjectionPoint;
+import org.springframework.beans.factory.UnsatisfiedDependencyException;
+import org.springframework.beans.factory.config.DependencyDescriptor;
 import org.springframework.context.ApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.core.MethodParameter;
+import org.springframework.lang.Nullable;
 import org.springframework.util.ReflectionUtils;
 
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.lang.reflect.Parameter;
+import java.net.URL;
+import java.net.URLClassLoader;
+import java.rmi.RemoteException;
 import java.util.*;
 import java.util.logging.Logger;
 
@@ -211,6 +223,67 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
         } catch (Exception ignored) {
         }
         return new CallResult(true, false, String.valueOf(invokeResult));
+    }
+
+    @Override
+    public void invokeTestMethod(String className, String methodName, String classRoot, String... methodClassName) throws RemoteException {
+        File directory = new File(classRoot);
+        try {
+            URL url = directory.toURI().toURL();
+            URLClassLoader classLoader = new URLClassLoader(new URL[]{url});
+            Class<?> loadedClass = classLoader.loadClass(className);
+            Object bean = null;
+
+            try {
+                bean = applicationContext.getAutowireCapableBeanFactory().createBean(loadedClass);
+                Class<?>[] parameterTypes = new Class[methodClassName.length];
+                for (int i = 0; i < methodClassName.length; i++) {
+                    parameterTypes[i] = Class.forName(methodClassName[i]);
+                }
+                Method method = ReflectionUtils.findMethod(loadedClass, methodName, parameterTypes);
+                if (method == null) {
+                    LOGGER.info("method not found:" + methodName);
+                    return;
+                }
+                method.setAccessible(true);
+                if (method.getParameterCount() > 0) {
+                    method.invoke(bean, resolveMethodArguments(method, bean, bean.getClass().getSimpleName()));
+                } else {
+                    method.invoke(bean);
+                }
+            } finally {
+                if (bean != null) {
+                    applicationContext.getAutowireCapableBeanFactory().destroyBean(bean);
+                }
+            }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    private Object[] resolveMethodArguments(Method method, Object bean, @Nullable String beanName) {
+        int argumentCount = method.getParameterCount();
+        Object[] arguments = new Object[argumentCount];
+        Set<String> autowiredBeans = new LinkedHashSet<>(argumentCount);
+        if (applicationContext instanceof ConfigurableApplicationContext) {
+            TypeConverter typeConverter = ((ConfigurableApplicationContext) applicationContext).getBeanFactory().getTypeConverter();
+            for (int i = 0; i < arguments.length; i++) {
+                MethodParameter methodParam = new MethodParameter(method, i);
+                DependencyDescriptor currDesc = new DependencyDescriptor(methodParam, true);
+                currDesc.setContainingClass(bean.getClass());
+                try {
+                    Object arg = ((ConfigurableApplicationContext) applicationContext).getBeanFactory().resolveDependency(currDesc, beanName, autowiredBeans, typeConverter);
+                    arguments[i] = arg;
+                } catch (BeansException ex) {
+                    throw new UnsatisfiedDependencyException(null, beanName, new InjectionPoint(methodParam), ex);
+                }
+            }
+            return arguments;
+        }
+        throw new IllegalArgumentException();
+
     }
 
     @Override

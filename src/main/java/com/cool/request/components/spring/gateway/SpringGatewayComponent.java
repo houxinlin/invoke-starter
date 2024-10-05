@@ -1,7 +1,6 @@
 package com.cool.request.components.spring.gateway;
 
 
-import com.cool.request.CoolRequestProjectLog;
 import com.cool.request.components.ComponentDataHandler;
 import com.cool.request.components.SpringBootStartInfo;
 import com.cool.request.utils.SpringUtils;
@@ -57,8 +56,7 @@ public class SpringGatewayComponent implements ComponentDataHandler {
                     }
                 }
             }
-        } catch (Exception e) {
-            CoolRequestProjectLog.logWithDebug(e);
+        } catch (Exception ignored) {
         }
 
     }
