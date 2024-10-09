@@ -32,6 +32,6 @@ public class FormDataInfo extends RequestParameterDescription implements Cloneab
 
     @Override
     public FormDataInfo clone() {
-        return new FormDataInfo(getName(), getValue(), getType());
+        return new FormDataInfo(getKey(), getValue(), getType());
     }
 }

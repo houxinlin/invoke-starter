@@ -12,6 +12,7 @@ import org.springframework.beans.factory.BeanFactoryUtils;
 import org.springframework.context.ApplicationContext;
 import org.springframework.core.annotation.AnnotationAwareOrderComparator;
 import org.springframework.core.env.Environment;
+import org.springframework.http.MediaType;
 import org.springframework.lang.Nullable;
 import org.springframework.mock.web.*;
 import org.springframework.util.MultiValueMap;
@@ -155,7 +156,7 @@ public class Dispatcher {
                         String valueItem = formDataInfo.getValue();
                         Path filePath = Paths.get(valueItem);
                         if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
-                            String name = formDataInfo.getName();
+                            String name = formDataInfo.getKey();
                             byte[] value = Files.readAllBytes(filePath);
                             CompatibilityUtil.invokeHttpServletRequest_addPart(mockHttpServletRequest, new MockPart(name, value));
                             MockMultipartFile mockMultipartFile = new MockMultipartFile(name, filePath.toFile().getName(), probeContentType(filePath), value);
@@ -163,8 +164,17 @@ public class Dispatcher {
                         } else {
                             LOGGER.error("invalid file path:" + filePath);
                         }
+                    } else if ("json".equalsIgnoreCase(formDataInfo.getType())) {
+                        byte[] content = null;
+                        if (formDataInfo.getValue() != null) {
+                            content = formDataInfo.getValue().getBytes(StandardCharsets.UTF_8);
+                        }
+                        MockPart mockPart = new MockPart(formDataInfo.getKey(), null, content);
+                        mockPart.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+                        mockPart.getHeaders().setContentLength(content == null ? 0 : content.length);
+                        mockHttpServletRequest.addPart(mockPart);
                     } else {
-                        mockHttpServletRequest.addParameter(formDataInfo.getName(), formDataInfo.getValue());
+                        mockHttpServletRequest.addParameter(formDataInfo.getKey(), formDataInfo.getValue());
                     }
                 }
 
