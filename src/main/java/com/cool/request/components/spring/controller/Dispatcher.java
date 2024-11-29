@@ -130,6 +130,101 @@ public class Dispatcher {
         return random.nextInt(max - min + 1) + min;
     }
 
+    private void configHeader(ReflexHttpRequestParamAdapterBody requestData, MockHttpServletRequest mockHttpServletRequest) {
+        for (KeyValue keyValue : Optional.ofNullable(requestData.getHeaders()).orElse(new ArrayList<>())) {
+            String key = keyValue.getKey();
+            if (key == null || key.isEmpty()) continue;
+            mockHttpServletRequest.addHeader(keyValue.getKey(), keyValue.getValue() == null ? "" : keyValue.getValue());
+        }
+
+    }
+
+    private void configFormData(ReflexHttpRequestParamAdapterBody requestData, MockHttpServletRequest mockHttpServletRequest) throws IOException {
+        for (FormDataInfo formDataInfo : Optional.ofNullable(requestData.getFormData()).orElse(new ArrayList<>())) {
+            if ("file".equalsIgnoreCase(formDataInfo.getType())) {
+                String valueItem = formDataInfo.getValue();
+                Path filePath = Paths.get(valueItem);
+                if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
+                    String name = formDataInfo.getKey();
+                    byte[] value = Files.readAllBytes(filePath);
+                    CompatibilityUtil.invokeHttpServletRequest_addPart(mockHttpServletRequest, new MockPart(name, value));
+                    MockMultipartFile mockMultipartFile = new MockMultipartFile(name, filePath.toFile().getName(), probeContentType(filePath), value);
+                    ((MockMultipartHttpServletRequest) mockHttpServletRequest).addFile(mockMultipartFile);
+                } else {
+                    LOGGER.error("invalid file path:" + filePath);
+                }
+            } else if ("json".equalsIgnoreCase(formDataInfo.getType())) {
+                byte[] content = null;
+                if (formDataInfo.getValue() != null) {
+                    content = formDataInfo.getValue().getBytes(StandardCharsets.UTF_8);
+                }
+                MockPart mockPart = new MockPart(formDataInfo.getKey(), null, content);
+                mockPart.getHeaders().setContentType(MediaType.APPLICATION_JSON);
+                mockPart.getHeaders().setContentLength(content == null ? 0 : content.length);
+                CompatibilityUtil.invokeHttpServletRequest_addPart(mockHttpServletRequest, mockPart);
+
+            } else {
+                mockHttpServletRequest.addParameter(formDataInfo.getKey(), formDataInfo.getValue());
+            }
+        }
+    }
+
+    private void configBinaryBody(
+            MockHttpServletRequest mockHttpServletRequest, String body) throws IOException {
+        Path path = Paths.get(body);
+        if (!Files.exists(path)) {
+            throw new IOException("file does not exist" + path);
+        }
+        byte[] bytes = StreamUtils.copyToByteArray(Files.newInputStream(path));
+        mockHttpServletRequest.setContent(bytes);
+    }
+
+    private void configBase(ReflexHttpRequestParamAdapterBody requestData, MockHttpServletRequest mockHttpServletRequest) throws IOException {
+        String url = Optional.ofNullable(requestData.getUrl()).orElse("/");
+        URI uri = URI.create(url);
+        mockHttpServletRequest.setMethod(requestData.getMethod());
+        UriComponentsBuilder uriComponentsBuilder = UriComponentsBuilder.fromUri(uri);
+        UriComponents uriComponents = uriComponentsBuilder.build();
+        mockHttpServletRequest.setProtocol(uri.getScheme());
+        mockHttpServletRequest.setRequestURI(uriComponents.getPath());
+        mockHttpServletRequest.setQueryString(uriComponents.getQuery());
+        String springContextPath = environment.getProperty("server.servlet.context-path");
+        if (springContextPath == null) springContextPath = "/";
+
+        mockHttpServletRequest.setContextPath(springContextPath);
+        mockHttpServletRequest.setServletPath(uri.getPath());
+        if (!"/".equals(springContextPath) && uri.getPath().startsWith(springContextPath)) {
+            mockHttpServletRequest.setServletPath(uri.getPath().replaceFirst("^" + springContextPath, ""));
+        }
+        mockHttpServletRequest.setRemoteHost("127.0.0.1");
+        mockHttpServletRequest.setRemoteAddr("127.0.0.1");
+        mockHttpServletRequest.setRemotePort(generateRandomNumber(1024, 65535));
+    }
+
+    private void configUrlencoded(String body, MockHttpServletRequest mockHttpServletRequest) {
+        if (mockHttpServletRequest.getContentType().contains("www-form-urlencoded")) {
+            UriComponents components = UriComponentsBuilder.newInstance()
+                    .query(body)
+                    .build();
+            MultiValueMap<String, String> bodyQueryParams = components.getQueryParams();
+            for (String queryKey : bodyQueryParams.keySet()) {
+                mockHttpServletRequest.setParameter(queryKey, urlDecode(bodyQueryParams.get(queryKey)).toArray(new String[0]));
+            }
+        }
+    }
+
+    private void configRequestParameter(ReflexHttpRequestParamAdapterBody requestData, MockHttpServletRequest mockHttpServletRequest) throws IOException {
+        String url = Optional.ofNullable(requestData.getUrl()).orElse("/");
+        URI uri = URI.create(url);
+        UriComponentsBuilder uriComponentsBuilder = UriComponentsBuilder.fromUri(uri);
+        UriComponents uriComponents = uriComponentsBuilder.build();
+        MultiValueMap<String, String> queryParams = uriComponents.getQueryParams();
+
+        for (String queryKey : queryParams.keySet()) {
+            mockHttpServletRequest.addParameter(queryKey, urlDecode(queryParams.get(queryKey)).toArray(new String[0]));
+        }
+    }
+
     private InvokeResponseModel doInvokeController(ReflexHttpRequestParamAdapterBody requestData, int serverPort) {
         MockHttpServletResponse mockHttpServletResponse = createMockHttpServletResponse();
         MockHttpServletRequest mockHttpServletRequest = null;
@@ -141,87 +236,23 @@ public class Dispatcher {
         try {
             String contentType = Optional.ofNullable(requestData.getContentType()).orElse("application/json");
             mockHttpServletRequest = createMockHttpServletRequest(contentType);
-            String body = Optional.ofNullable(requestData.getBody()).orElse("");
-            String url = Optional.ofNullable(requestData.getUrl()).orElse("/");
-
-            for (com.cool.request.components.http.KeyValue keyValue : Optional.ofNullable(requestData.getHeaders()).orElse(new ArrayList<>())) {
-                mockHttpServletRequest.addHeader(keyValue.getKey().toLowerCase(), keyValue.getValue().toLowerCase());
-            }
 
             mockHttpServletRequest.setServerPort(serverPort);
-            URI uri = URI.create(url);
+            String body = Optional.ofNullable(requestData.getBody()).orElse("");
+
+            configBase(requestData, mockHttpServletRequest);
+            configRequestParameter(requestData, mockHttpServletRequest);
+            configHeader(requestData, mockHttpServletRequest);
+
             if (contentType.toLowerCase().contains("multipart/form-data")) {
-                for (FormDataInfo formDataInfo : Optional.ofNullable(requestData.getFormData()).orElse(new ArrayList<>())) {
-                    if ("file".equalsIgnoreCase(formDataInfo.getType())) {
-                        String valueItem = formDataInfo.getValue();
-                        Path filePath = Paths.get(valueItem);
-                        if (Files.exists(filePath) && Files.isRegularFile(filePath)) {
-                            String name = formDataInfo.getKey();
-                            byte[] value = Files.readAllBytes(filePath);
-                            CompatibilityUtil.invokeHttpServletRequest_addPart(mockHttpServletRequest, new MockPart(name, value));
-                            MockMultipartFile mockMultipartFile = new MockMultipartFile(name, filePath.toFile().getName(), probeContentType(filePath), value);
-                            ((MockMultipartHttpServletRequest) mockHttpServletRequest).addFile(mockMultipartFile);
-                        } else {
-                            LOGGER.error("invalid file path:" + filePath);
-                        }
-                    } else if ("json".equalsIgnoreCase(formDataInfo.getType())) {
-                        byte[] content = null;
-                        if (formDataInfo.getValue() != null) {
-                            content = formDataInfo.getValue().getBytes(StandardCharsets.UTF_8);
-                        }
-                        MockPart mockPart = new MockPart(formDataInfo.getKey(), null, content);
-                        mockPart.getHeaders().setContentType(MediaType.APPLICATION_JSON);
-                        mockPart.getHeaders().setContentLength(content == null ? 0 : content.length);
-                        mockHttpServletRequest.addPart(mockPart);
-                    } else {
-                        mockHttpServletRequest.addParameter(formDataInfo.getKey(), formDataInfo.getValue());
-                    }
-                }
-
+                configFormData(requestData, mockHttpServletRequest);
+            } else if ("application/octet-stream".equals(contentType)) {
+                configBinaryBody(mockHttpServletRequest, body);
             } else {
-                if ("application/octet-stream".equals(contentType)) {
-                    Path path = Paths.get(body);
-                    if (!Files.exists(path)) {
-                        throw new IOException("file does not exist" + path);
-                    }
-                    byte[] bytes = StreamUtils.copyToByteArray(Files.newInputStream(path));
-                    mockHttpServletRequest.setContent(bytes);
-
-                } else {
-                    mockHttpServletRequest.setContent(body.getBytes());
-                }
-            }
-            mockHttpServletRequest.setMethod(requestData.getMethod());
-            UriComponentsBuilder uriComponentsBuilder = UriComponentsBuilder.fromUri(uri);
-            UriComponents uriComponents = uriComponentsBuilder.build();
-            mockHttpServletRequest.setProtocol(uri.getScheme());
-            mockHttpServletRequest.setRequestURI(uriComponents.getPath());
-            mockHttpServletRequest.setQueryString(uriComponents.getQuery());
-            String springContextPath = environment.getProperty("server.servlet.context-path");
-            if (springContextPath == null) springContextPath = "/";
-
-            mockHttpServletRequest.setContextPath(springContextPath);
-            mockHttpServletRequest.setServletPath(uri.getPath());
-            if (!"/".equals(springContextPath) && uri.getPath().startsWith(springContextPath)) {
-                mockHttpServletRequest.setServletPath(uri.getPath().replaceFirst("^" + springContextPath, ""));
-            }
-            mockHttpServletRequest.setRemoteHost("127.0.0.1");
-            mockHttpServletRequest.setRemoteAddr("127.0.0.1");
-            mockHttpServletRequest.setRemotePort(generateRandomNumber(1024, 65535));
-            MultiValueMap<String, String> queryParams = uriComponents.getQueryParams();
-            for (String queryKey : queryParams.keySet()) {
-                mockHttpServletRequest.addParameter(queryKey, urlDecode(queryParams.get(queryKey)).toArray(new String[0]));
-            }
-            if (mockHttpServletRequest.getContentType().contains("www-form-urlencoded")) {
-                UriComponents components = UriComponentsBuilder.newInstance()
-                        .query(body)
-                        .build();
-                MultiValueMap<String, String> bodyQueryParams = components.getQueryParams();
-                for (String queryKey : bodyQueryParams.keySet()) {
-                    mockHttpServletRequest.setParameter(queryKey, urlDecode(bodyQueryParams.get(queryKey)).toArray(new String[0]));
-                }
+                mockHttpServletRequest.setContent(body.getBytes());
             }
 
+            configUrlencoded(body, mockHttpServletRequest);
             ServletRequestAttributes servletRequestAttributes = CompatibilityUtil.newServletRequestAttributes(mockHttpServletRequest);
             RequestContextHolder.setRequestAttributes(servletRequestAttributes);
             if (this.parseRequestPath) {
@@ -249,7 +280,7 @@ public class Dispatcher {
 
                     if (requestData.isUseInterceptor()) {
                         if (!applyPreHandle(interceptorList, handler, mockHttpServletRequest, mockHttpServletResponse)) {
-                            return responseToPlugin(mockHttpServletResponse, requestData, exception, mappedHandler);
+                            return createResponseModel(mockHttpServletResponse, requestData, exception, mappedHandler);
                         }
                     }
                     CompatibilityUtil.invokeHandlerAdapter_handle(ha, mockHttpServletRequest, mockHttpServletResponse, handler);
@@ -265,7 +296,7 @@ public class Dispatcher {
             CoolRequestProjectLog.userExceptionLog(e);
             exception = e;
         } finally {
-            invokeResponseModel = responseToPlugin(mockHttpServletResponse, requestData, exception, mappedHandler);
+            invokeResponseModel = createResponseModel(mockHttpServletResponse, requestData, exception, mappedHandler);
             if (requestData.isUseInterceptor()) {
                 triggerAfterCompletion(interceptorList, handler, mockHttpServletRequest, mockHttpServletResponse);
             }
@@ -300,9 +331,9 @@ public class Dispatcher {
         }).collect(Collectors.toList());
     }
 
-    private InvokeResponseModel responseToPlugin(MockHttpServletResponse response,
-                                                 ReflexHttpRequestParamAdapterBody controllerRequestData,
-                                                 Exception exception, HandlerExecutionChain mappedHandler) {
+    private InvokeResponseModel createResponseModel(MockHttpServletResponse response,
+                                                    ReflexHttpRequestParamAdapterBody controllerRequestData,
+                                                    Exception exception, HandlerExecutionChain mappedHandler) {
         String requestId = controllerRequestData.getId();
 
         if (mappedHandler != null) {

@@ -123,7 +123,6 @@ public class CompatibilityUtil {
 
     public static void invokeHttpServletRequest_addPart(Object instance, Object arg) {
         try {
-
             MethodType methodType = MethodType.methodType(void.class, loadPartClass());
             MethodHandle addPartHandle = MethodHandles.lookup().findVirtual(instance.getClass(), "addPart", methodType);
             addPartHandle.bindTo(instance).invokeWithArguments(arg);

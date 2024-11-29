@@ -27,39 +27,37 @@ public class CoolRequestStarterApplication implements SpringApplicationRunListen
 
     }
 
-    @Override
+    public void finished(ConfigurableApplicationContext context, Throwable exception) {
+
+    }
+
     public void starting(ConfigurableBootstrapContext bootstrapContext) {
     }
 
-    @Override
     public void environmentPrepared(ConfigurableBootstrapContext bootstrapContext, ConfigurableEnvironment environment) {
     }
 
-    @Override
     public void contextPrepared(ConfigurableApplicationContext context) {
     }
 
-    @Override
     public void contextLoaded(ConfigurableApplicationContext context) {
     }
 
-    @Override
     public void started(ConfigurableApplicationContext context, Duration timeTaken) {
     }
 
-    @Override
+    public void started(){
+
+    }
     public void started(ConfigurableApplicationContext context) {
     }
 
-    @Override
     public void ready(ConfigurableApplicationContext context, Duration timeTaken) {
     }
 
-    @Override
     public void running(ConfigurableApplicationContext context) {
     }
 
-    @Override
     public void failed(ConfigurableApplicationContext context, Throwable exception) {
     }
 }

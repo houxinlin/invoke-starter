@@ -2,32 +2,17 @@ package com.cool.request.components.method.parameter;
 
 import com.cool.request.components.method.ParameterConvertManager;
 import com.cool.request.components.method.ParameterConverter;
-import com.cool.request.utils.LocalDateTimeTypeAdapter;
-import com.cool.request.utils.LocalDateTypeAdapter;
-import com.cool.request.utils.LocalTimeTypeAdapter;
-import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
+import com.cool.request.json.GsonMapper;
 import com.google.gson.reflect.TypeToken;
 
 import java.lang.reflect.*;
 import java.text.ParseException;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.util.*;
 
 public class ObjectParameterConverter implements ParameterConverter {
-    private ParameterConvertManager manager;
-    private static Gson gson = new GsonBuilder()
-            .setDateFormat("yyyy-MM-dd HH:mm:ss")
-            .registerTypeAdapter(LocalDate.class, new LocalDateTypeAdapter())
-            .registerTypeAdapter(LocalDateTime.class, new LocalDateTimeTypeAdapter())
-            .registerTypeAdapter(LocalTime.class, new LocalTimeTypeAdapter())
-            .create();
-    private List<ParameterConverter> parameterConverters = new ArrayList<>();
+    private final List<ParameterConverter> parameterConverters = new ArrayList<>();
 
     public ObjectParameterConverter(ParameterConvertManager parameterConvertManager) {
-        this.manager = parameterConvertManager;
         parameterConverters.add(new ListParameterConverter());
         parameterConverters.add(new SetParameterConverter());
         parameterConverters.add(new MapParameterConverter());
@@ -52,45 +37,6 @@ public class ObjectParameterConverter implements ParameterConverter {
             }
         }
         return null;
-//        try {
-//            Object instance = newInstance(parameterClass);
-//            BeanUtilsBean beanUtilsBean = new BeanUtilsBean(manager.getPrimitiveParameterConverter().getConvertUtilsBean(), new PropertyUtilsBean());
-//            BeanUtilsBean.setInstance(beanUtilsBean);
-//            BeanUtils.populate(instance, ((Map<String, Object>) data));
-//            if (parameterClass.isArray()) {
-//                return Array.newInstance(parameterClass.getComponentType(), 1);
-//            }
-//            if (List.class.isAssignableFrom(parameterClass)) {
-//                List<Object> result = new ArrayList<>();
-//                result.add(instance);
-//                return result;
-//            }
-//            if (Set.class.isAssignableFrom(parameterClass)) {
-//                Set<Object> result = new HashSet<>();
-//                result.add(instance);
-//                return result;
-//            }
-//            if (Map.class.isAssignableFrom(parameterClass)) {
-//                return data;
-//            }
-//            return instance;
-//        } catch (IllegalAccessException | InvocationTargetException e) {
-//            throw new RuntimeException(e);
-//        }
-    }
-
-    private <T> T newInstance(Class<T> clazz) {
-        try {
-            if (clazz.isArray()) {
-                Class<?> componentTypeClass = clazz.getComponentType();
-                Constructor<?> constructor = componentTypeClass.getConstructor();
-                return (T) constructor.newInstance();
-            }
-            Constructor<?> constructor = clazz.getConstructor();
-            return (T) constructor.newInstance();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private static class ArrayTypeConverter implements ParameterConverter {
@@ -100,9 +46,9 @@ public class ObjectParameterConverter implements ParameterConverter {
         }
 
         @Override
-        public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) throws ParseException {
+        public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) {
             Class<?> componentTypeClass = parameterClass.getComponentType();
-            return gson.fromJson(data.toString(), Array.newInstance(componentTypeClass, 0).getClass());
+            return GsonMapper.getGson().fromJson(data.toString(), Array.newInstance(componentTypeClass, 0).getClass());
         }
     }
 
@@ -113,7 +59,7 @@ public class ObjectParameterConverter implements ParameterConverter {
         }
 
         @Override
-        public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) throws ParseException {
+        public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) {
             if (data == null) return null;
             Type[] genericParameterTypes = method.getGenericParameterTypes();
             if (parameterIndex < genericParameterTypes.length) {
@@ -122,10 +68,10 @@ public class ObjectParameterConverter implements ParameterConverter {
                     ParameterizedType parameterizedType = (ParameterizedType) genericParameterType;
                     Type[] actualTypeArguments = parameterizedType.getActualTypeArguments();
                     Type type = TypeToken.getParameterized(parameterClass, actualTypeArguments).getType();
-                    return gson.fromJson(data.toString(), type);
+                    return GsonMapper.getGson().fromJson(data.toString(), type);
                 }
             }
-            return gson.fromJson(data.toString(), parameterClass);
+            return GsonMapper.getGson().fromJson(data.toString(), parameterClass);
         }
     }
 
@@ -136,11 +82,10 @@ public class ObjectParameterConverter implements ParameterConverter {
         }
 
         @Override
-        public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) throws ParseException {
+        public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) {
             if (data == null) return new HashMap<>();
-            Type type = new TypeToken<Map<String, Object>>() {
-            }.getType();
-            return gson.fromJson(gson.toJson(data), type);
+            Type type = new TypeToken<Map<String, Object>>() {}.getType();
+            return GsonMapper.getGson().fromJson(String.valueOf(data), type);
         }
     }
 
@@ -164,7 +109,7 @@ public class ObjectParameterConverter implements ParameterConverter {
                         try {
                             Class<?> aClass = Class.forName(genericParameter);
                             Type listType = TypeToken.getParameterized(Set.class, aClass).getType();
-                            return gson.fromJson(data.toString(), listType);
+                            return GsonMapper.getGson().fromJson(data.toString(), listType);
                         } catch (ClassNotFoundException e) {
                             throw new RuntimeException(e);
                         }
@@ -196,7 +141,7 @@ public class ObjectParameterConverter implements ParameterConverter {
                         try {
                             Class<?> aClass = Class.forName(genericParameter);
                             Type listType = TypeToken.getParameterized(List.class, aClass).getType();
-                            return gson.fromJson(data.toString(), listType);
+                            return GsonMapper.getGson().fromJson(data.toString(), listType);
                         } catch (ClassNotFoundException e) {
                             throw new RuntimeException(e);
                         }

@@ -42,7 +42,7 @@ tasks.shadowJar {
     relocate("org.apache.commons.beanutils", "com.cool.request.starter.lib.net.commons.beanutils")
     relocate("org.apache.commons.collections", "com.cool.request.starter.lib.net.commons.collections")
     relocate("org.apache.commons.logging", "com.cool.request.starter.lib.net.commons.logging")
-    relocate("com.google.code.gson", "com.cool.request.starter.lib.net.gson")
+    relocate("com.google.gson", "com.cool.request.starter.lib.net.gson")
 }
 
 dependencies {
@@ -52,15 +52,12 @@ dependencies {
     implementation("commons-beanutils:commons-beanutils:1.9.4")
     implementation("com.google.code.gson:gson:2.8.9")
 
-    compileOnly("jakarta.servlet:jakarta.servlet-api:6.0.0")
-    compileOnly("javax.servlet:javax.servlet-api:4.0.1")
-    compileOnly("com.fasterxml.jackson.core:jackson-databind:2.12.5")// 使用你需要的版本
+    compileOnly("com.fasterxml.jackson.core:jackson-databind:2.12.5")
     compileOnly("org.springframework.cloud:spring-cloud-starter-gateway")
     compileOnly("org.springframework:spring-test:5.3.25") {
         exclude(group = "org.springframework", module = "spring-core")
     }
     compileOnly("com.xuxueli:xxl-job-core:2.4.0")
-
     compileOnly("org.springframework.boot:spring-boot-starter-actuator")
 
 }

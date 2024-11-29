@@ -4,6 +4,7 @@ import com.cool.request.components.ComponentDataHandler;
 import com.cool.request.components.SpringBootStartInfo;
 import com.cool.request.rmi.starter.CallResult;
 import com.cool.request.utils.exception.ObjectNotFound;
+import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.beans.BeansException;
 import org.springframework.beans.TypeConverter;
 import org.springframework.beans.factory.InjectionPoint;
@@ -158,6 +159,7 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
                 parameterValue[i] = convertValue;
                 parameterValueMap.put(parameter, convertValue);
             } catch (Exception e) {
+                e.printStackTrace();
                 String msg = "Cannot convert parameters:[" + parameterName + "] to type:" + parameter.getType();
                 throw new IllegalArgumentException(msg);
             }
@@ -209,7 +211,8 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
             return declaringClass.getConstructor().newInstance();
         for (Object value : beansOfType.values()) {
             if (hasCode == Objects.hashCode(value)) {
-                return value;
+                Object singletonTarget = AopProxyUtils.getSingletonTarget(value);
+                return singletonTarget == null ? value : singletonTarget;
             }
         }
         //指名了hasCode，但是没有找到，让插件进行下一个

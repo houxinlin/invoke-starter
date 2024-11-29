@@ -67,7 +67,7 @@ public class ParameterConverters {
 
         @Override
         public boolean canSupport(Method method, int parameterIndex, Class<?> parameterClass, Object value) {
-            return byte[].class.equals(parameterClass);
+            return byte[].class.equals(parameterClass) || Byte[].class.equals(parameterClass);
         }
 
         @Override
@@ -252,7 +252,7 @@ public class ParameterConverters {
         }
 
         @Override
-        public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) throws ParseException {
+        public Object converter(Method method, int parameterIndex, Class<?> parameterClass, Object data) {
             if (List.class.isAssignableFrom(parameterClass)) {
                 List<Object> result = new ArrayList<>();
                 Class<?> componentType = getGenericParameterTypes(method.getGenericParameterTypes()[parameterIndex]);
@@ -276,6 +276,9 @@ public class ParameterConverters {
                     }
                 }
                 return result;
+            }
+            if ("".equals(data)) {
+                if (!parameterClass.isPrimitive()) return null;
             }
             return convertUtilsBean.convert(data, parameterClass);
         }
