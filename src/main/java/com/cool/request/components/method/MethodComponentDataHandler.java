@@ -17,6 +17,8 @@ import org.springframework.lang.Nullable;
 import org.springframework.util.ReflectionUtils;
 
 import java.io.File;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
@@ -56,6 +58,18 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
         try {
             return doInvoke(rmiCallMethod, hasCode, code);
         } catch (Exception e) {
+            if (e instanceof InvocationTargetException) {
+                Throwable targetException = ((InvocationTargetException) e).getTargetException();
+                targetException.printStackTrace();
+                StringWriter sw = new StringWriter();
+                PrintWriter pw = new PrintWriter(sw);
+                targetException.printStackTrace(pw);
+
+                return new CallResult(true, true, sw.toString());
+            }
+            if (e instanceof ObjectNotFound) {
+                return new CallResult(false, false, "");
+            }
             e.printStackTrace();
             return new CallResult(true, true, e.getMessage());
         }
@@ -164,37 +178,31 @@ public class MethodComponentDataHandler implements ComponentDataHandler, MethodC
                 throw new IllegalArgumentException(msg);
             }
         }
-        try {
-            Object object = getObject(method, hasCode);
-            if (callMethodScriptObject != null) {
-                invokeBeforeCallMethod(callMethodScriptObject, method, parameterValueMap);
-            }
-            Object[] newParameterValue = new Object[parameterTypes.size()];
-            for (int i = 0; i < method.getParameters().length; i++) {
-                newParameterValue[i] = parameterValueMap.get(method.getParameters()[i]);
-            }
-            CallResult invoke = invoke(object, method, newParameterValue);
-            if (callMethodScriptObject != null) {
-                invokeAfterCallMethod(callMethodScriptObject, method);
-            }
-            return invoke;
-        } catch (ObjectNotFound object) {
-            return new CallResult(false, false, "");
+        Object object = getObject(method, hasCode);
+        if (callMethodScriptObject != null) {
+            invokeBeforeCallMethod(callMethodScriptObject, method, parameterValueMap);
         }
+        Object[] newParameterValue = new Object[parameterTypes.size()];
+        for (int i = 0; i < method.getParameters().length; i++) {
+            newParameterValue[i] = parameterValueMap.get(method.getParameters()[i]);
+        }
+        CallResult invoke = invoke(object, method, newParameterValue);
+        if (callMethodScriptObject != null) {
+            invokeAfterCallMethod(callMethodScriptObject, method);
+        }
+        return invoke;
+
 
     }
 
     private CallResult invoke(Object instance, Method method, Object[] parameterValue) throws Exception {
-        try {
-            method.setAccessible(true);
-            Object invokeResult = method.invoke(instance, parameterValue);
-            if (void.class.equals(method.getReturnType()) || Void.class.equals(method.getReturnType())) {
-                return new CallResult(true, false, "void");
-            }
-            return getReturnValueFromSpringMvc(invokeResult);
-        } catch (Exception e) {
-            throw e;
+        method.setAccessible(true);
+        Object invokeResult = method.invoke(instance, parameterValue);
+        if (void.class.equals(method.getReturnType()) || Void.class.equals(method.getReturnType())) {
+            return new CallResult(true, false, "void");
         }
+        return getReturnValueFromSpringMvc(invokeResult);
+
     }
 
     private Object getObject(Method method, int hasCode) throws Exception {

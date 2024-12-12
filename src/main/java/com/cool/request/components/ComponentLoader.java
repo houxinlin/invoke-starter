@@ -14,6 +14,7 @@ import org.springframework.beans.BeansException;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationContextAware;
+import org.springframework.context.annotation.Configuration;
 
 import java.rmi.AlreadyBoundException;
 import java.rmi.Remote;
@@ -28,6 +29,7 @@ import static com.cool.request.utils.SpringUtils.getServerPort;
 /**
  * 组件数据加载器
  */
+@Configuration
 public class ComponentLoader implements
         CommandLineRunner,
         ApplicationContextAware {
